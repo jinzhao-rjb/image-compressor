@@ -48,16 +48,14 @@ qualitySlider.addEventListener('input', () => {
 
 // 处理文件上传
 function handleFileUpload(files) {
-    // 清空现有数据
-    uploadedImages = [];
+    // 保留现有数据，仅添加新上传的图片
+    // 清空压缩相关数据
     compressedImages = [];
     compressionProgress = 0;
-    totalFiles = 0;
     processedFiles = 0;
-    selectedImages = []; // 清空选中数组
     
     // 检查总文件大小
-    let totalSize = 0;
+    let totalSize = uploadedImages.reduce((sum, img) => sum + img.size, 0);
     const validFiles = [];
     
     Array.from(files).forEach(file => {
@@ -79,7 +77,7 @@ function handleFileUpload(files) {
         return;
     }
     
-    // 遍历有效文件
+    // 遍历有效文件，添加到现有数组
     validFiles.forEach(file => {
         uploadedImages.push({
             file: file,
@@ -668,13 +666,31 @@ function cleanupResources() {
 // 事件监听
 
 // 点击上传区域触发文件选择
-uploadArea.addEventListener('click', () => {
+uploadArea.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     fileInput.click();
 });
+
+// 确保fileInput在移动端可以正常触发
+try {
+    // 修复移动端点击问题
+    fileInput.style.opacity = '0';
+    fileInput.style.position = 'absolute';
+    fileInput.style.top = '0';
+    fileInput.style.left = '0';
+    fileInput.style.width = '100%';
+    fileInput.style.height = '100%';
+    fileInput.style.cursor = 'pointer';
+} catch (e) {
+    console.error('Failed to style file input:', e);
+}
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
     handleFileUpload(e.target.files);
+    // 重置fileInput，允许重复选择相同文件
+    e.target.value = '';
 });
 
 // 拖拽上传
