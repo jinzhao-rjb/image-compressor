@@ -16,11 +16,11 @@ const downloadAllBtn = document.getElementById('downloadAllBtn');
 
 // 配置
 const CONFIG = {
-  maxConcurrent: 5,      // 最大并发压缩数
+  maxConcurrent: 10,      // 最大并发压缩数，提高到10以支持更多图片
   retryTimes: 3,          // 失败重试次数
-  chunkSize: 100,         // 每次处理的文件块大小
+  chunkSize: 200,         // 每次处理的文件块大小，设置为200以支持200张图片
   maxFileSize: 100 * 1024 * 1024,  // 最大文件大小 (100MB)
-  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)
+  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)，对于200张图片足够
 };
 
 // 存储数据
