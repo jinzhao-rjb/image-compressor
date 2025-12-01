@@ -6,9 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "compress": "node src/cli.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "echo \"No lint configured\" && exit 0",
-    "build": "echo \"No build configured\" && exit 0"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "image",
