@@ -104,6 +104,8 @@ main {
     height: 100%;
     opacity: 0;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 10;
 }
 
 /* 选项区域样式 */
