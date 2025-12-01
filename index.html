@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/image-compressor/">
     <title>图片压缩工具</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -20,8 +21,8 @@
                         <div class="upload-icon">📁</div>
                         <h3>点击或拖拽图片到此处</h3>
                         <p>支持 JPG、JPEG、PNG、WebP、GIF 格式</p>
-                        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple>
                     </div>
+                    <input type="file" id="fileInput" accept="image/*" multiple>
                 </div>
                 
                 <div class="options-section">
@@ -41,6 +42,13 @@
                             <option value="png">PNG</option>
                             <option value="webp">WebP</option>
                         </select>
+                    </div>
+                    
+                    <div class="option-group">
+                        <label for="replaceOriginal">
+                            <input type="checkbox" id="replaceOriginal">
+                            压缩后替代原文件
+                        </label>
                     </div>
                     
                     <button id="compressBtn" class="compress-btn">开始压缩</button>
