@@ -48,7 +48,6 @@ qualitySlider.addEventListener('input', () => {
 
 // 处理文件上传
 function handleFileUpload(files) {
-    // 保留现有数据，仅添加新上传的图片
     // 清空压缩相关数据
     compressedImages = [];
     compressionProgress = 0;
@@ -58,6 +57,7 @@ function handleFileUpload(files) {
     let totalSize = uploadedImages.reduce((sum, img) => sum + img.size, 0);
     const validFiles = [];
     
+    // 遍历新选择的文件
     Array.from(files).forEach(file => {
         if (file.type.startsWith('image/')) {
             // 检查单个文件大小
@@ -92,7 +92,7 @@ function handleFileUpload(files) {
     // 显示预览
     displayPreview();
     
-    // 显示压缩按钮
+    // 启用压缩按钮
     compressBtn.disabled = uploadedImages.length === 0;
     
     // 隐藏结果区域
@@ -665,12 +665,9 @@ function cleanupResources() {
 
 // 事件监听
 
-// 点击上传区域触发文件选择
-uploadArea.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    fileInput.click();
-});
+// 移除uploadArea的点击事件监听器，因为fileInput已经覆盖整个区域
+// 点击uploadArea会自动触发fileInput，无需额外的点击事件
+    
 
 // 确保fileInput在移动端可以正常触发
 try {
@@ -688,9 +685,14 @@ try {
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
-    handleFileUpload(e.target.files);
-    // 重置fileInput，允许重复选择相同文件
-    e.target.value = '';
+    const files = e.target.files;
+    if (files.length > 0) {
+        handleFileUpload(files);
+    }
+    // 重置input值，允许重复选择相同文件
+    setTimeout(() => {
+        e.target.value = '';
+    }, 0);
 });
 
 // 拖拽上传
