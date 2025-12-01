@@ -16,11 +16,11 @@ const downloadAllBtn = document.getElementById('downloadAllBtn');
 
 // 配置
 const CONFIG = {
-  maxConcurrent: 10,      // 最大并发压缩数
+  maxConcurrent: 10,      // 最大并发压缩数，提高到10以支持更多图片
   retryTimes: 3,          // 失败重试次数
-  chunkSize: 200,         // 每次处理的文件块大小
+  chunkSize: 200,         // 每次处理的文件块大小，设置为200以支持200张图片
   maxFileSize: 100 * 1024 * 1024,  // 最大文件大小 (100MB)
-  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)
+  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)，对于200张图片足够
 };
 
 // 存储数据
@@ -48,7 +48,7 @@ qualitySlider.addEventListener('input', () => {
 
 // 处理文件上传
 function handleFileUpload(files) {
-    // 清空所有数据
+    // 清空所有数据，包括已上传图片
     uploadedImages = [];
     compressedImages = [];
     compressionProgress = 0;
@@ -103,9 +103,22 @@ function handleFileUpload(files) {
 
 // 切换图片选中状态
 function toggleImageSelection(index) {
-    // 获取所有图片预览项
+    // 获取所有图片预览项（不包括额外的提示项和按钮）
     const previewItems = document.querySelectorAll('.preview-item');
-    let previewItem = previewItems[index];
+    let previewItem;
+    let actualIndex = -1;
+    
+    // 遍历预览项，找到对应的图片预览项
+    for (let i = 0; i < previewItems.length; i++) {
+        const item = previewItems[i];
+        if (item.querySelector('.preview-image')) {
+            actualIndex++;
+            if (actualIndex === index) {
+                previewItem = item;
+                break;
+            }
+        }
+    }
     
     if (!previewItem) return;
     
@@ -256,9 +269,11 @@ function displayPreview() {
     `;
     previewGrid.appendChild(infoDiv);
     
-    // 显示所有图片的预览
-    uploadedImages.forEach((image, index) => {
+    // 显示所有图片的预览，修复移动端勾选问题
+    for (let i = 0; i < uploadedImages.length; i++) {
+        const image = uploadedImages[i];
         const reader = new FileReader();
+        const index = i; // 保存当前索引，避免闭包问题
         
         reader.onload = (e) => {
             const previewItem = document.createElement('div');
@@ -274,16 +289,48 @@ function displayPreview() {
                 </div>
             `;
             
-            // 添加点击事件，支持选择/取消选择
-            previewItem.addEventListener('click', () => {
-                toggleImageSelection(index);
+            // 添加触摸事件支持，修复移动端多选问题
+            let longPressTimer;
+            let isLongPress = false;
+            
+            previewItem.addEventListener('touchstart', (e) => {
+                isLongPress = false;
+                longPressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    toggleImageSelection(index);
+                    e.preventDefault();
+                }, 500); // 500ms长按
+            });
+            
+            previewItem.addEventListener('touchend', (e) => {
+                clearTimeout(longPressTimer);
+                // 短点击也触发选择
+                if (!isLongPress) {
+                    toggleImageSelection(index);
+                    e.preventDefault();
+                }
+            });
+            
+            previewItem.addEventListener('touchmove', (e) => {
+                clearTimeout(longPressTimer);
+                e.preventDefault();
+            });
+            
+            // 添加点击事件，支持桌面端直接点击选择/取消选择
+            previewItem.addEventListener('click', (e) => {
+                // 避免触摸事件和点击事件冲突
+                if (!isLongPress) {
+                    toggleImageSelection(index);
+                }
             });
             
             previewGrid.appendChild(previewItem);
         };
         
         reader.readAsDataURL(image.file);
-    });
+    }
+    
+    // 移除显示剩余数量的提示，现在显示所有图片
     
     // 添加移除所有按钮
     const removeAllBtn = document.createElement('button');
@@ -556,7 +603,7 @@ function displayTotalStats() {
     const totalOriginalSize = compressedImages.reduce((sum, img) => sum + img.original.size, 0);
     const totalCompressedSize = compressedImages.reduce((sum, img) => sum + img.compressed.size, 0);
     const totalSavings = totalOriginalSize - totalCompressedSize;
-    const totalSavingsPercent = totalOriginalSize > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
+    const totalSavingsPercent = totalOriginalSize > 0 ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1) : 0;
     
     totalStats.innerHTML = `
         <h3>总压缩统计</h3>
@@ -593,7 +640,7 @@ function displayTotalStats() {
 function downloadAllImages() {
     if (compressedImages.length === 0) return;
     
-    // 逐个下载图片
+    // 使用 zip.js 或其他库可以实现打包下载，这里简单实现逐个下载
     compressedImages.forEach(result => {
         const a = document.createElement('a');
         a.href = result.compressed.url;
@@ -618,30 +665,53 @@ function cleanupResources() {
     uploadedImages = [];
 }
 
-// 初始化
-function init() {
-    // 设置初始质量值
-    qualityValue.textContent = qualitySlider.value;
-    
-    // 禁用压缩按钮
-    compressBtn.disabled = true;
-    
-    // 隐藏结果区域
-    resultsSection.style.display = 'none';
-    
-    // 确保fileInput支持多选
-    fileInput.multiple = true;
-    fileInput.setAttribute('multiple', 'multiple');
-}
-
 // 事件监听
 
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', init);
+// 移除uploadArea的点击事件监听器，因为fileInput已经覆盖整个区域
+// 点击uploadArea会自动触发fileInput，无需额外的点击事件
+    
+
+// 确保fileInput在移动端可以正常触发
+try {
+    // 修复移动端点击问题
+    fileInput.style.opacity = '0';
+    fileInput.style.position = 'absolute';
+    fileInput.style.top = '0';
+    fileInput.style.left = '0';
+    fileInput.style.width = '100%';
+    fileInput.style.height = '100%';
+    fileInput.style.cursor = 'pointer';
+} catch (e) {
+    console.error('Failed to style file input:', e);
+}
+
+// 确保fileInput支持多选，添加移动端兼容性处理
+function ensureMultiSelectSupport() {
+    // 明确设置multiple属性为true
+    fileInput.setAttribute('multiple', 'multiple');
+    fileInput.multiple = true;
+    
+    // 添加移动端兼容性属性
+    fileInput.setAttribute('capture', 'false');
+    fileInput.setAttribute('webkitdirectory', 'false');
+    fileInput.setAttribute('directory', 'false');
+    
+    // 移除可能导致单选的属性
+    fileInput.removeAttribute('webkitallowfullscreen');
+    fileInput.removeAttribute('mozallowfullscreen');
+    fileInput.removeAttribute('allowfullscreen');
+}
+
+// 页面加载时调用，确保支持多选
+document.addEventListener('DOMContentLoaded', () => {
+    ensureMultiSelectSupport();
+    init();
+});
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
-    const files = e.target.files;
+    // 修复移动端浏览器files对象获取问题
+    const files = e.target.files || e.dataTransfer?.files || [];
     if (files.length > 0) {
         handleFileUpload(files);
     }
@@ -650,6 +720,9 @@ fileInput.addEventListener('change', (e) => {
         e.target.value = '';
     }, 0);
 });
+
+// 添加窗口大小变化时的处理，确保fileInput始终正确显示
+window.addEventListener('resize', ensureMultiSelectSupport);
 
 // 拖拽上传
 uploadArea.addEventListener('dragover', (e) => {
@@ -675,3 +748,17 @@ downloadAllBtn.addEventListener('click', downloadAllImages);
 
 // 页面卸载时清理资源
 window.addEventListener('beforeunload', cleanupResources);
+
+// 初始化
+function init() {
+    // 设置初始质量值
+    qualityValue.textContent = qualitySlider.value;
+    
+    // 禁用压缩按钮
+    compressBtn.disabled = true;
+    
+    // 隐藏结果区域
+    resultsSection.style.display = 'none';
+}
+
+// 页面加载完成后初始化已合并到上面的事件监听器中，不再单独调用
