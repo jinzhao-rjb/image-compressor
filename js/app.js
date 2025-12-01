@@ -6,6 +6,7 @@ const fileInput = document.getElementById('fileInput');
 const qualitySlider = document.getElementById('quality');
 const qualityValue = document.getElementById('qualityValue');
 const formatSelect = document.getElementById('format');
+const replaceOriginalCheckbox = document.getElementById('replaceOriginal');
 const compressBtn = document.getElementById('compressBtn');
 const previewGrid = document.getElementById('previewGrid');
 const resultsSection = document.getElementById('resultsSection');
@@ -278,13 +279,23 @@ async function compressSingleImage(image, retryCount = 0) {
                         return;
                     }
                     
+                    // 确定输出文件名
+                    let outputName;
+                    if (replaceOriginalCheckbox.checked) {
+                        // 如果替换原文件，使用原文件名
+                        outputName = image.name;
+                    } else {
+                        // 否则添加_compressed后缀
+                        outputName = `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`;
+                    }
+                    
                     const compressedImage = {
                         original: image,
                         compressed: {
                             blob: blob,
                             size: blob.size,
                             url: URL.createObjectURL(blob),
-                            name: `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`,
+                            name: outputName,
                             mimeType: mimeType
                         },
                         savings: image.size - blob.size,
@@ -346,14 +357,40 @@ function displayResults() {
         return;
     }
     
+    // 添加替换原文件提示
+    if (replaceOriginalCheckbox.checked) {
+        const replaceHint = document.createElement('div');
+        replaceHint.style.cssText = `
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        `;
+        replaceHint.innerHTML = `
+            <p>💡 提示：由于浏览器安全限制，无法直接修改您的本地文件。</p>
+            <p>请手动将下载的图片替换原文件，或使用命令行版本的 --replace 选项自动替换。</p>
+        `;
+        resultsGrid.appendChild(replaceHint);
+    }
+    
     // 显示每张图片的结果
     compressedImages.forEach((result, index) => {
         const resultItem = document.createElement('div');
         resultItem.className = 'result-item';
+        
+        // 确定下载按钮文本
+        let downloadBtnText = '下载';
+        if (replaceOriginalCheckbox.checked) {
+            downloadBtnText = '下载（替换原文件）';
+        }
+        
         resultItem.innerHTML = `
             <div class="result-header">
                 <div class="result-name">${result.compressed.name}</div>
-                <a href="${result.compressed.url}" download="${result.compressed.name}" class="download-btn">下载</a>
+                <a href="${result.compressed.url}" download="${result.compressed.name}" class="download-btn">${downloadBtnText}</a>
             </div>
             <img src="${result.compressed.url}" alt="${result.compressed.name}" class="result-image">
             <div class="result-stats">

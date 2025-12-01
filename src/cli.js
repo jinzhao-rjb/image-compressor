@@ -96,7 +96,7 @@ async function compressImage(inputPath, outputPath, quality, retryCount = 0) {
 }
 
 // 并发压缩图片
-async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite) {
+async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite, replaceOriginal) {
   let successCount = 0;
   let failCount = 0;
   let totalOriginalSize = 0;
@@ -105,8 +105,16 @@ async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality
   
   // 创建并发控制函数
   async function processImage(file) {
-    const inputPath = path.join(inputDir, file);
-    const outputPath = path.join(outputDir, file);
+    let inputPath = path.join(inputDir, file);
+    let outputPath = path.join(outputDir, file);
+    
+    // 如果是替换原文件，先保存到临时文件
+    let tempOutputPath = outputPath;
+    let isReplaceOriginal = replaceOriginal && inputDir === outputDir;
+    
+    if (isReplaceOriginal) {
+      tempOutputPath = path.join(outputDir, `temp_${Date.now()}_${file}`);
+    }
     
     try {
       // 检查输出文件是否已存在
@@ -118,7 +126,7 @@ async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality
         outputExists = false;
       }
       
-      if (outputExists && !overwrite) {
+      if (outputExists && !overwrite && !isReplaceOriginal) {
         console.log(`跳过 ${file}: 输出文件已存在`);
         processedCount++;
         return;
@@ -129,9 +137,15 @@ async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality
       totalOriginalSize += originalSize;
       
       // 压缩图片
-      const success = await compressImage(inputPath, outputPath, quality);
+      const success = await compressImage(inputPath, tempOutputPath, quality);
       
       if (success) {
+        // 如果是替换原文件，先删除原文件，再重命名临时文件
+        if (isReplaceOriginal) {
+          await fs.unlink(inputPath);
+          await fs.rename(tempOutputPath, outputPath);
+        }
+        
         // 获取压缩后文件大小
         const compressedSize = await getFileSize(outputPath);
         totalCompressedSize += compressedSize;
@@ -142,13 +156,28 @@ async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality
         console.log(`  原始大小: ${formatFileSize(originalSize)}`);
         console.log(`  压缩后: ${formatFileSize(compressedSize)}`);
         console.log(`  节省: ${formatFileSize(savedSize)} (${savedPercent}%)`);
+        if (isReplaceOriginal) {
+          console.log(`  状态: 已替换原文件`);
+        }
         successCount++;
       } else {
         console.log(`✗ 失败: ${file}`);
+        // 清理临时文件
+        if (isReplaceOriginal) {
+          try {
+            await fs.unlink(tempOutputPath);
+          } catch {}
+        }
         failCount++;
       }
     } catch (error) {
       console.error(`处理失败 ${file}:`, error.message);
+      // 清理临时文件
+      if (isReplaceOriginal) {
+        try {
+          await fs.unlink(tempOutputPath);
+        } catch {}
+      }
       failCount++;
     } finally {
       processedCount++;
@@ -187,19 +216,22 @@ async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality
 }
 
 // 压缩目录下所有图片
-async function compressDirectory(inputDir, outputDir, quality, overwrite) {
+async function compressDirectory(inputDir, outputDir, quality, overwrite, replaceOriginal) {
   console.log('=== 图片压缩工具 ===');
   console.log(`输入目录: ${inputDir}`);
   console.log(`输出目录: ${outputDir}`);
   console.log(`压缩质量: ${quality}`);
   console.log(`最大并发: ${CONFIG.maxConcurrent}`);
   console.log(`失败重试: ${CONFIG.retryTimes}次`);
+  console.log(`覆盖原文件: ${replaceOriginal ? '是' : '否'}`);
   console.log('==================');
   
   try {
     // 确保目录存在
     await ensureDir(inputDir);
-    await ensureDir(outputDir);
+    if (!replaceOriginal) {
+      await ensureDir(outputDir);
+    }
     
     // 异步读取输入目录
     const files = await fs.readdir(inputDir);
@@ -217,7 +249,7 @@ async function compressDirectory(inputDir, outputDir, quality, overwrite) {
     const startTime = Date.now();
     
     // 并发压缩图片
-    const result = await compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite);
+    const result = await compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite, replaceOriginal);
     
     // 计算耗时
     const endTime = Date.now();
@@ -270,6 +302,12 @@ const argv = yargs(hideBin(process.argv))
     type: 'boolean',
     default: true
   })
+  .option('replace', {
+    alias: 'r',
+    description: '是否用压缩后的图片替代原文件（输入输出目录需相同）',
+    type: 'boolean',
+    default: false
+  })
   .option('concurrent', {
     alias: 'c',
     description: '最大并发数',
@@ -285,5 +323,15 @@ if (argv.concurrent > 0) {
   CONFIG.maxConcurrent = argv.concurrent;
 }
 
+// 处理替换原文件选项
+let finalOutputDir = argv.output;
+let isReplaceOriginal = argv.replace;
+
+// 如果是替换原文件，输出目录必须和输入目录相同
+if (isReplaceOriginal) {
+  finalOutputDir = argv.input;
+  console.log('注意：替换原文件模式下，输出目录将自动设置为输入目录');
+}
+
 // 执行压缩
-compressDirectory(argv.input, argv.output, argv.quality, argv.overwrite);
+compressDirectory(argv.input, finalOutputDir, argv.quality, argv.overwrite, isReplaceOriginal);
