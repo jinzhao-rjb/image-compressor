@@ -30,6 +30,7 @@ let compressionProgress = 0;
 let totalFiles = 0;
 let processedFiles = 0;
 let isCompressing = false;
+let selectedImages = [];
 
 // 格式化文件大小
 function formatFileSize(bytes) {
@@ -99,6 +100,130 @@ function handleFileUpload(files) {
     resultsSection.style.display = 'none';
 }
 
+// 切换图片选中状态
+function toggleImageSelection(index) {
+    const previewItem = document.querySelectorAll('.preview-item')[index];
+    if (!previewItem) return;
+    
+    const isSelected = selectedImages.includes(index);
+    
+    if (isSelected) {
+        // 取消选中
+        selectedImages = selectedImages.filter(i => i !== index);
+        previewItem.classList.remove('selected');
+    } else {
+        // 选中
+        selectedImages.push(index);
+        previewItem.classList.add('selected');
+    }
+    
+    // 更新操作按钮状态
+    updateActionButtons();
+}
+
+// 更新操作按钮状态
+function updateActionButtons() {
+    const actionButtons = document.getElementById('actionButtons');
+    if (!actionButtons) return;
+    
+    const deleteBtn = actionButtons.querySelector('.delete-selected-btn');
+    const replaceBtn = actionButtons.querySelector('.replace-selected-btn');
+    
+    if (selectedImages.length > 0) {
+        deleteBtn.disabled = false;
+        replaceBtn.disabled = false;
+    } else {
+        deleteBtn.disabled = true;
+        replaceBtn.disabled = true;
+    }
+}
+
+// 删除选中图片
+function deleteSelectedImages() {
+    if (selectedImages.length === 0) return;
+    
+    if (confirm(`确定要删除选中的 ${selectedImages.length} 张图片吗？`)) {
+        // 按索引从大到小排序，避免删除后索引混乱
+        selectedImages.sort((a, b) => b - a);
+        
+        // 删除选中的图片
+        selectedImages.forEach(index => {
+            uploadedImages.splice(index, 1);
+        });
+        
+        // 清空选中数组
+        selectedImages = [];
+        
+        // 更新预览
+        displayPreview();
+        
+        // 更新压缩按钮状态
+        compressBtn.disabled = uploadedImages.length === 0;
+    }
+}
+
+// 替换选中图片
+function replaceSelectedImages() {
+    if (selectedImages.length === 0) return;
+    
+    // 创建一个临时文件输入
+    const tempFileInput = document.createElement('input');
+    tempFileInput.type = 'file';
+    tempFileInput.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    tempFileInput.multiple = selectedImages.length > 1;
+    
+    tempFileInput.onchange = (e) => {
+        const files = e.target.files;
+        if (files.length === 0) return;
+        
+        // 检查替换图片数量
+        if (files.length !== selectedImages.length) {
+            alert(`请选择 ${selectedImages.length} 张图片进行替换`);
+            return;
+        }
+        
+        // 按索引从小到大排序
+        selectedImages.sort((a, b) => a - b);
+        
+        // 替换选中的图片
+        for (let i = 0; i < selectedImages.length; i++) {
+            const index = selectedImages[i];
+            const file = files[i];
+            
+            // 检查文件类型和大小
+            if (!file.type.startsWith('image/')) {
+                alert(`文件 ${file.name} 不是图片，请重新选择`);
+                return;
+            }
+            
+            if (file.size > CONFIG.maxFileSize) {
+                alert(`文件 ${file.name} 超过最大文件大小限制 (${formatFileSize(CONFIG.maxFileSize)})`);
+                return;
+            }
+            
+            // 替换图片
+            uploadedImages[index] = {
+                file: file,
+                name: file.name,
+                size: file.size,
+                type: file.type
+            };
+        }
+        
+        // 清空选中数组
+        selectedImages = [];
+        
+        // 更新预览
+        displayPreview();
+        
+        // 更新压缩按钮状态
+        compressBtn.disabled = uploadedImages.length === 0;
+    };
+    
+    // 触发文件选择
+    tempFileInput.click();
+}
+
 // 显示图片预览
 function displayPreview() {
     if (uploadedImages.length === 0) {
@@ -113,10 +238,18 @@ function displayPreview() {
     // 清空预览区域
     previewGrid.innerHTML = '';
     
-    // 显示图片数量
+    // 显示图片数量和操作按钮
     const infoDiv = document.createElement('div');
     infoDiv.className = 'preview-info';
-    infoDiv.innerHTML = `<p>共 ${uploadedImages.length} 张图片，总大小: ${formatFileSize(uploadedImages.reduce((sum, img) => sum + img.size, 0))}</p>`;
+    infoDiv.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <p>共 ${uploadedImages.length} 张图片，总大小: ${formatFileSize(uploadedImages.reduce((sum, img) => sum + img.size, 0))}</p>
+            <div id="actionButtons" style="display: flex; gap: 10px;">
+                <button class="remove-btn delete-selected-btn" disabled onclick="deleteSelectedImages()">删除选中</button>
+                <button class="remove-btn replace-selected-btn" disabled onclick="replaceSelectedImages()">替换选中</button>
+            </div>
+        </div>
+    `;
     previewGrid.appendChild(infoDiv);
     
     // 只显示前20张图片的预览，避免内存占用过大
@@ -130,12 +263,40 @@ function displayPreview() {
             const previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
             previewItem.innerHTML = `
-                <img src="${e.target.result}" alt="${image.name}" class="preview-image">
+                <div class="preview-item-content">
+                    <div class="checkmark"></div>
+                    <img src="${e.target.result}" alt="${image.name}" class="preview-image">
+                </div>
                 <div class="preview-info">
                     <div>${image.name}</div>
                     <div>${formatFileSize(image.size)}</div>
                 </div>
             `;
+            
+            // 添加长按事件
+            let longPressTimer;
+            previewItem.addEventListener('touchstart', (e) => {
+                longPressTimer = setTimeout(() => {
+                    toggleImageSelection(i);
+                    e.preventDefault();
+                }, 500); // 500ms长按
+            });
+            
+            previewItem.addEventListener('touchend', () => {
+                clearTimeout(longPressTimer);
+            });
+            
+            previewItem.addEventListener('touchmove', () => {
+                clearTimeout(longPressTimer);
+            });
+            
+            // 添加点击事件（已选中时可点击取消）
+            previewItem.addEventListener('click', () => {
+                if (selectedImages.length > 0) {
+                    toggleImageSelection(i);
+                }
+            });
+            
             previewGrid.appendChild(previewItem);
         };
         
@@ -160,6 +321,7 @@ function displayPreview() {
     removeAllBtn.textContent = '移除所有图片';
     removeAllBtn.onclick = () => {
         uploadedImages = [];
+        selectedImages = [];
         displayPreview();
         compressBtn.disabled = true;
     };
