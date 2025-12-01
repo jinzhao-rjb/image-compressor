@@ -54,6 +54,7 @@ function handleFileUpload(files) {
     compressionProgress = 0;
     totalFiles = 0;
     processedFiles = 0;
+    selectedImages = []; // 清空选中数组
     
     // 检查总文件大小
     let totalSize = 0;
@@ -102,7 +103,23 @@ function handleFileUpload(files) {
 
 // 切换图片选中状态
 function toggleImageSelection(index) {
-    const previewItem = document.querySelectorAll('.preview-item')[index];
+    // 获取所有图片预览项（不包括额外的提示项和按钮）
+    const previewItems = document.querySelectorAll('.preview-item');
+    let previewItem;
+    let actualIndex = -1;
+    
+    // 遍历预览项，找到对应的图片预览项
+    for (let i = 0; i < previewItems.length; i++) {
+        const item = previewItems[i];
+        if (item.querySelector('.preview-image')) {
+            actualIndex++;
+            if (actualIndex === index) {
+                previewItem = item;
+                break;
+            }
+        }
+    }
+    
     if (!previewItem) return;
     
     const isSelected = selectedImages.includes(index);
@@ -252,12 +269,11 @@ function displayPreview() {
     `;
     previewGrid.appendChild(infoDiv);
     
-    // 只显示前20张图片的预览，避免内存占用过大
-    const displayCount = Math.min(20, uploadedImages.length);
-    
-    for (let i = 0; i < displayCount; i++) {
+    // 显示所有图片的预览，修复移动端勾选问题
+    for (let i = 0; i < uploadedImages.length; i++) {
         const image = uploadedImages[i];
         const reader = new FileReader();
+        const index = i; // 保存当前索引，避免闭包问题
         
         reader.onload = (e) => {
             const previewItem = document.createElement('div');
@@ -281,7 +297,7 @@ function displayPreview() {
                 isLongPress = false;
                 longPressTimer = setTimeout(() => {
                     isLongPress = true;
-                    toggleImageSelection(i);
+                    toggleImageSelection(index);
                     e.preventDefault();
                 }, 500); // 500ms长按
             });
@@ -290,7 +306,7 @@ function displayPreview() {
                 clearTimeout(longPressTimer);
                 // 短点击也触发选择
                 if (!isLongPress) {
-                    toggleImageSelection(i);
+                    toggleImageSelection(index);
                     e.preventDefault();
                 }
             });
@@ -304,7 +320,7 @@ function displayPreview() {
             previewItem.addEventListener('click', (e) => {
                 // 避免触摸事件和点击事件冲突
                 if (!isLongPress) {
-                    toggleImageSelection(i);
+                    toggleImageSelection(index);
                 }
             });
             
@@ -314,17 +330,7 @@ function displayPreview() {
         reader.readAsDataURL(image.file);
     }
     
-    // 如果图片数量超过20，显示剩余数量
-    if (uploadedImages.length > 20) {
-        const moreDiv = document.createElement('div');
-        moreDiv.className = 'preview-item';
-        moreDiv.innerHTML = `
-            <div style="padding: 20px; text-align: center;">
-                <p>... 还有 ${uploadedImages.length - 20} 张图片</p>
-            </div>
-        `;
-        previewGrid.appendChild(moreDiv);
-    }
+    // 移除显示剩余数量的提示，现在显示所有图片
     
     // 添加移除所有按钮
     const removeAllBtn = document.createElement('button');
