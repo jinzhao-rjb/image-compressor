@@ -20,20 +20,7 @@ async function ensureDir(dirPath) {
     await fs.access(dirPath);
   } catch {
     await fs.mkdir(dirPath, { recursive: true });
-    console.log(`创建目录: ${dirPath}`);
   }
-}
-
-// 检查文件是否为支持的图片格式
-function isSupportedImage(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  return SUPPORTED_FORMATS.includes(ext);
-}
-
-// 获取文件大小（字节）
-async function getFileSize(filePath) {
-  const stats = await fs.stat(filePath);
-  return stats.size;
 }
 
 // 格式化文件大小
@@ -45,293 +32,161 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// 压缩单张图片，支持重试
-async function compressImage(inputPath, outputPath, quality, retryCount = 0) {
+// 压缩单张图片
+async function compressImage(filePath, outputPath, quality = 85, overwrite = false) {
   try {
-    const ext = path.extname(inputPath).toLowerCase();
+    // 读取图片
+    const image = sharp(filePath);
+    const metadata = await image.metadata();
     
-    let sharpInstance = sharp(inputPath);
+    // 压缩图片
+    const compressedImage = image[metadata.format]({
+      quality: quality,
+      progressive: true
+    });
     
-    // 根据图片格式设置压缩选项
-    switch (ext) {
-      case '.jpg':
-      case '.jpeg':
-        sharpInstance = sharpInstance.jpeg({
-          quality: quality,
-          mozjpeg: true,
-          progressive: true
-        });
-        break;
-      case '.png':
-        sharpInstance = sharpInstance.png({
-          quality: quality,
-          compressionLevel: 9,
-          adaptiveFiltering: true
-        });
-        break;
-      case '.webp':
-        sharpInstance = sharpInstance.webp({
-          quality: quality,
-          lossless: false
-        });
-        break;
-      case '.gif':
-        // GIF压缩保持原有质量
-        sharpInstance = sharpInstance.gif();
-        break;
-    }
+    // 确定输出路径
+    const finalOutputPath = overwrite ? filePath : outputPath;
     
-    // 输出图片
-    await sharpInstance.toFile(outputPath);
+    // 保存压缩后的图片
+    await compressedImage.toFile(finalOutputPath);
     
-    return true;
+    return {
+      success: true,
+      originalPath: filePath,
+      compressedPath: finalOutputPath,
+      originalSize: metadata.size,
+      compressedSize: (await fs.stat(finalOutputPath)).size,
+      format: metadata.format
+    };
   } catch (error) {
-    if (retryCount < CONFIG.retryTimes) {
-      console.log(`重试压缩 ${inputPath} (${retryCount + 1}/${CONFIG.retryTimes})...`);
-      return compressImage(inputPath, outputPath, quality, retryCount + 1);
-    }
-    console.error(`压缩失败 ${inputPath}:`, error.message);
-    return false;
+    console.error(`压缩失败 ${filePath}:`, error.message);
+    return {
+      success: false,
+      originalPath: filePath,
+      error: error.message
+    };
   }
 }
 
-// 并发压缩图片
-async function compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite, replaceOriginal) {
+// 压缩目录下的所有图片
+async function compressDirectory(inputDir, outputDir = null, quality = 85, overwrite = false) {
+  console.log(`开始压缩目录: ${inputDir}`);
+  console.log(`输出目录: ${overwrite ? '覆盖原文件' : (outputDir || '默认输出目录')}`);
+  
+  // 如果没有指定输出目录且不覆盖，则使用默认输出目录
+  if (!outputDir && !overwrite) {
+    outputDir = path.join(inputDir, 'compressed');
+    await ensureDir(outputDir);
+    console.log(`创建输出目录: ${outputDir}`);
+  }
+  
+  // 读取目录下的所有文件
+  const files = await fs.readdir(inputDir);
+  const imageFiles = files.filter(file => 
+    SUPPORTED_FORMATS.includes(path.extname(file).toLowerCase())
+  );
+  
+  console.log(`找到 ${imageFiles.length} 张图片`);
+  
+  if (imageFiles.length === 0) {
+    console.log('没有找到支持的图片文件');
+    return;
+  }
+  
+  // 压缩所有图片
   let successCount = 0;
   let failCount = 0;
-  let totalOriginalSize = 0;
-  let totalCompressedSize = 0;
-  let processedCount = 0;
   
-  // 创建并发控制函数
-  async function processImage(file) {
-    let inputPath = path.join(inputDir, file);
-    let outputPath = path.join(outputDir, file);
+  for (const file of imageFiles) {
+    const filePath = path.join(inputDir, file);
+    const outputPath = outputDir ? path.join(outputDir, file) : filePath;
     
-    // 如果是替换原文件，先保存到临时文件
-    let tempOutputPath = outputPath;
-    let isReplaceOriginal = replaceOriginal && inputDir === outputDir;
+    const result = await compressImage(filePath, outputPath, quality, overwrite);
     
-    if (isReplaceOriginal) {
-      tempOutputPath = path.join(outputDir, `temp_${Date.now()}_${file}`);
-    }
-    
-    try {
-      // 检查输出文件是否已存在
-      let outputExists = false;
-      try {
-        await fs.access(outputPath);
-        outputExists = true;
-      } catch {
-        outputExists = false;
-      }
-      
-      if (outputExists && !overwrite && !isReplaceOriginal) {
-        console.log(`跳过 ${file}: 输出文件已存在`);
-        processedCount++;
-        return;
-      }
-      
-      // 获取原始文件大小
-      const originalSize = await getFileSize(inputPath);
-      totalOriginalSize += originalSize;
-      
-      // 压缩图片
-      const success = await compressImage(inputPath, tempOutputPath, quality);
-      
-      if (success) {
-        // 如果是替换原文件，先删除原文件，再重命名临时文件
-        if (isReplaceOriginal) {
-          await fs.unlink(inputPath);
-          await fs.rename(tempOutputPath, outputPath);
-        }
-        
-        // 获取压缩后文件大小
-        const compressedSize = await getFileSize(outputPath);
-        totalCompressedSize += compressedSize;
-        const savedSize = originalSize - compressedSize;
-        const savedPercent = originalSize > 0 ? ((savedSize / originalSize) * 100).toFixed(1) : 0;
-        
-        console.log(`✓ 成功: ${file}`);
-        console.log(`  原始大小: ${formatFileSize(originalSize)}`);
-        console.log(`  压缩后: ${formatFileSize(compressedSize)}`);
-        console.log(`  节省: ${formatFileSize(savedSize)} (${savedPercent}%)`);
-        if (isReplaceOriginal) {
-          console.log(`  状态: 已替换原文件`);
-        }
-        successCount++;
-      } else {
-        console.log(`✗ 失败: ${file}`);
-        // 清理临时文件
-        if (isReplaceOriginal) {
-          try {
-            await fs.unlink(tempOutputPath);
-          } catch {}
-        }
-        failCount++;
-      }
-    } catch (error) {
-      console.error(`处理失败 ${file}:`, error.message);
-      // 清理临时文件
-      if (isReplaceOriginal) {
-        try {
-          await fs.unlink(tempOutputPath);
-        } catch {}
-      }
+    if (result.success) {
+      successCount++;
+      const savedSize = result.originalSize - result.compressedSize;
+      console.log(`✓ ${file}: 压缩成功 (${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}, 节省 ${formatFileSize(savedSize)})`);
+    } else {
       failCount++;
-    } finally {
-      processedCount++;
-      // 显示进度
-      console.log(`进度: ${processedCount}/${imageFiles.length} (${((processedCount / imageFiles.length) * 100).toFixed(1)}%)`);
-      console.log('------------------');
+      console.log(`✗ ${file}: 压缩失败 - ${result.error}`);
     }
   }
   
-  // 实现并发控制
-  const queue = [...imageFiles];
-  const workers = [];
-  
-  // 启动工作线程
-  for (let i = 0; i < Math.min(CONFIG.maxConcurrent, queue.length); i++) {
-    workers.push(runWorker());
-  }
-  
-  // 工作线程函数
-  async function runWorker() {
-    while (queue.length > 0) {
-      const file = queue.shift();
-      await processImage(file);
-    }
-  }
-  
-  // 等待所有工作线程完成
-  await Promise.all(workers);
-  
-  return {
-    successCount,
-    failCount,
-    totalOriginalSize,
-    totalCompressedSize
-  };
+  console.log(`\n压缩完成: 成功 ${successCount} 张, 失败 ${failCount} 张`);
 }
 
-// 压缩目录下所有图片
-async function compressDirectory(inputDir, outputDir, quality, overwrite, replaceOriginal) {
-  console.log('=== 图片压缩工具 ===');
-  console.log(`输入目录: ${inputDir}`);
-  console.log(`输出目录: ${outputDir}`);
-  console.log(`压缩质量: ${quality}`);
-  console.log(`最大并发: ${CONFIG.maxConcurrent}`);
-  console.log(`失败重试: ${CONFIG.retryTimes}次`);
-  console.log(`覆盖原文件: ${replaceOriginal ? '是' : '否'}`);
-  console.log('==================');
+// 主函数
+async function main() {
+  const argv = yargs(hideBin(process.argv))
+    .option('input', {
+      alias: 'i',
+      type: 'string',
+      description: '输入目录或文件路径',
+      demandOption: true
+    })
+    .option('output', {
+      alias: 'o',
+      type: 'string',
+      description: '输出目录路径 (默认: 压缩后文件保存到原目录的compressed子目录)'
+    })
+    .option('quality', {
+      alias: 'q',
+      type: 'number',
+      description: '压缩质量 (1-100, 默认85)',
+      default: 85
+    })
+    .option('overwrite', {
+      alias: 'w',
+      type: 'boolean',
+      description: '是否用压缩后的图片替代原文件',
+      default: false
+    })
+    .option('concurrent', {
+      alias: 'c',
+      type: 'number',
+      description: '最大并发数',
+      default: CONFIG.maxConcurrent
+    })
+    .help()
+    .alias('help', 'h')
+    .argv;
+
+  // 更新配置
+  CONFIG.maxConcurrent = argv.concurrent;
   
-  try {
-    // 确保目录存在
-    await ensureDir(inputDir);
-    if (!replaceOriginal) {
-      await ensureDir(outputDir);
+  const inputPath = argv.input;
+  const stats = await fs.stat(inputPath);
+  
+  if (stats.isDirectory()) {
+    // 压缩目录下所有图片
+    await compressDirectory(inputPath, argv.output, argv.quality, argv.overwrite);
+  } else if (stats.isFile()) {
+    // 压缩单个文件
+    const outputPath = argv.output || (argv.overwrite ? inputPath : path.join(path.dirname(inputPath), 'compressed', path.basename(inputPath)));
+    if (!argv.overwrite) {
+      await ensureDir(path.dirname(outputPath));
     }
-    
-    // 异步读取输入目录
-    const files = await fs.readdir(inputDir);
-    const imageFiles = files.filter(file => isSupportedImage(file));
-    
-    if (imageFiles.length === 0) {
-      console.log('输入目录中没有支持的图片文件');
-      return;
+    const result = await compressImage(inputPath, outputPath, argv.quality, argv.overwrite);
+    if (result.success) {
+      const savedSize = result.originalSize - result.compressedSize;
+      console.log(`✓ 压缩成功: ${path.basename(inputPath)}`);
+      console.log(`  原始大小: ${formatFileSize(result.originalSize)}`);
+      console.log(`  压缩后: ${formatFileSize(result.compressedSize)}`);
+      console.log(`  节省: ${formatFileSize(savedSize)}`);
+      console.log(`  输出路径: ${result.compressedPath}`);
+    } else {
+      console.log(`✗ 压缩失败: ${path.basename(inputPath)} - ${result.error}`);
     }
-    
-    console.log(`找到 ${imageFiles.length} 张图片，开始压缩...`);
-    console.log('==================');
-    
-    // 记录开始时间
-    const startTime = Date.now();
-    
-    // 并发压缩图片
-    const result = await compressImagesInParallel(imageFiles, inputDir, outputDir, quality, overwrite, replaceOriginal);
-    
-    // 计算耗时
-    const endTime = Date.now();
-    const duration = (endTime - startTime) / 1000;
-    
-    // 输出统计信息
-    console.log('==================');
-    console.log('压缩完成！');
-    console.log(`总耗时: ${duration.toFixed(2)} 秒`);
-    console.log(`成功: ${result.successCount} 张`);
-    console.log(`失败: ${result.failCount} 张`);
-    
-    const totalSavedSize = result.totalOriginalSize - result.totalCompressedSize;
-    const totalSavedPercent = result.totalOriginalSize > 0 ? ((totalSavedSize / result.totalOriginalSize) * 100).toFixed(1) : 0;
-    
-    console.log(`总原始大小: ${formatFileSize(result.totalOriginalSize)}`);
-    console.log(`总压缩后: ${formatFileSize(result.totalCompressedSize)}`);
-    console.log(`总节省: ${formatFileSize(totalSavedSize)} (${totalSavedPercent}%)`);
-    console.log(`平均速度: ${(result.successCount / duration).toFixed(2)} 张/秒`);
-    console.log('==================');
-  } catch (error) {
-    console.error('压缩过程中发生错误:', error.message);
+  } else {
+    console.error('输入路径不是有效的文件或目录');
     process.exit(1);
   }
 }
 
-// 解析命令行参数
-const argv = yargs(hideBin(process.argv))
-  .option('input', {
-    alias: 'i',
-    description: '输入目录',
-    type: 'string',
-    default: './input'
-  })
-  .option('output', {
-    alias: 'o',
-    description: '输出目录',
-    type: 'string',
-    default: './output'
-  })
-  .option('quality', {
-    alias: 'q',
-    description: '压缩质量 (1-100)',
-    type: 'number',
-    default: 85
-  })
-  .option('overwrite', {
-    alias: 'w',
-    description: '是否覆盖已存在的文件',
-    type: 'boolean',
-    default: true
-  })
-  .option('replace', {
-    alias: 'r',
-    description: '是否用压缩后的图片替代原文件（输入输出目录需相同）',
-    type: 'boolean',
-    default: false
-  })
-  .option('concurrent', {
-    alias: 'c',
-    description: '最大并发数',
-    type: 'number',
-    default: CONFIG.maxConcurrent
-  })
-  .help()
-  .alias('help', 'h')
-  .argv;
-
-// 更新配置
-if (argv.concurrent > 0) {
-  CONFIG.maxConcurrent = argv.concurrent;
-}
-
-// 处理替换原文件选项
-let finalOutputDir = argv.output;
-let isReplaceOriginal = argv.replace;
-
-// 如果是替换原文件，输出目录必须和输入目录相同
-if (isReplaceOriginal) {
-  finalOutputDir = argv.input;
-  console.log('注意：替换原文件模式下，输出目录将自动设置为输入目录');
-}
-
-// 执行压缩
-compressDirectory(argv.input, finalOutputDir, argv.quality, argv.overwrite, isReplaceOriginal);
+// 执行主函数
+main().catch(error => {
+  console.error('程序错误:', error);
+  process.exit(1);
+});

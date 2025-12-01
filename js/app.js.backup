@@ -16,11 +16,11 @@ const downloadAllBtn = document.getElementById('downloadAllBtn');
 
 // 配置
 const CONFIG = {
-  maxConcurrent: 10,      // 最大并发压缩数
-  retryTimes: 3,          // 失败重试次数
-  chunkSize: 200,         // 每次处理的文件块大小
-  maxFileSize: 100 * 1024 * 1024,  // 最大文件大小 (100MB)
-  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)
+  maxConcurrent: 3,      // 最大并发压缩数
+  retryTimes: 2,          // 失败重试次数
+  chunkSize: 50,          // 每次处理的文件块大小
+  maxFileSize: 100 * 1024 * 1024,  // 单个文件最大 100MB
+  maxTotalSize: 1 * 1024 * 1024 * 1024  // 总文件大小最大 1GB
 };
 
 // 存储数据
@@ -30,7 +30,6 @@ let compressionProgress = 0;
 let totalFiles = 0;
 let processedFiles = 0;
 let isCompressing = false;
-let selectedImages = [];
 
 // 格式化文件大小
 function formatFileSize(bytes) {
@@ -48,18 +47,17 @@ qualitySlider.addEventListener('input', () => {
 
 // 处理文件上传
 function handleFileUpload(files) {
-    // 清空所有数据
+    // 清空现有数据
     uploadedImages = [];
     compressedImages = [];
     compressionProgress = 0;
     processedFiles = 0;
-    selectedImages = [];
     
     // 检查总文件大小
     let totalSize = 0;
     const validFiles = [];
     
-    // 遍历新选择的文件
+    // 遍历文件
     Array.from(files).forEach(file => {
         if (file.type.startsWith('image/')) {
             // 检查单个文件大小
@@ -79,7 +77,7 @@ function handleFileUpload(files) {
         return;
     }
     
-    // 遍历有效文件，添加到数组
+    // 遍历有效文件
     validFiles.forEach(file => {
         uploadedImages.push({
             file: file,
@@ -94,138 +92,11 @@ function handleFileUpload(files) {
     // 显示预览
     displayPreview();
     
-    // 启用压缩按钮
+    // 显示压缩按钮
     compressBtn.disabled = uploadedImages.length === 0;
     
     // 隐藏结果区域
     resultsSection.style.display = 'none';
-}
-
-// 切换图片选中状态
-function toggleImageSelection(index) {
-    // 获取所有图片预览项
-    const previewItems = document.querySelectorAll('.preview-item');
-    let previewItem = previewItems[index];
-    
-    if (!previewItem) return;
-    
-    const isSelected = selectedImages.includes(index);
-    
-    if (isSelected) {
-        // 取消选中
-        selectedImages = selectedImages.filter(i => i !== index);
-        previewItem.classList.remove('selected');
-    } else {
-        // 选中
-        selectedImages.push(index);
-        previewItem.classList.add('selected');
-    }
-    
-    // 更新操作按钮状态
-    updateActionButtons();
-}
-
-// 更新操作按钮状态
-function updateActionButtons() {
-    const actionButtons = document.getElementById('actionButtons');
-    if (!actionButtons) return;
-    
-    const deleteBtn = actionButtons.querySelector('.delete-selected-btn');
-    const replaceBtn = actionButtons.querySelector('.replace-selected-btn');
-    
-    if (selectedImages.length > 0) {
-        deleteBtn.disabled = false;
-        replaceBtn.disabled = false;
-    } else {
-        deleteBtn.disabled = true;
-        replaceBtn.disabled = true;
-    }
-}
-
-// 删除选中图片
-function deleteSelectedImages() {
-    if (selectedImages.length === 0) return;
-    
-    if (confirm(`确定要删除选中的 ${selectedImages.length} 张图片吗？`)) {
-        // 按索引从大到小排序，避免删除后索引混乱
-        selectedImages.sort((a, b) => b - a);
-        
-        // 删除选中的图片
-        selectedImages.forEach(index => {
-            uploadedImages.splice(index, 1);
-        });
-        
-        // 清空选中数组
-        selectedImages = [];
-        
-        // 更新预览
-        displayPreview();
-        
-        // 更新压缩按钮状态
-        compressBtn.disabled = uploadedImages.length === 0;
-    }
-}
-
-// 替换选中图片
-function replaceSelectedImages() {
-    if (selectedImages.length === 0) return;
-    
-    // 创建一个临时文件输入
-    const tempFileInput = document.createElement('input');
-    tempFileInput.type = 'file';
-    tempFileInput.accept = 'image/*';
-    tempFileInput.multiple = true;
-    
-    tempFileInput.onchange = (e) => {
-        const files = e.target.files;
-        if (files.length === 0) return;
-        
-        // 检查替换图片数量
-        if (files.length !== selectedImages.length) {
-            alert(`请选择 ${selectedImages.length} 张图片进行替换`);
-            return;
-        }
-        
-        // 按索引从小到大排序
-        selectedImages.sort((a, b) => a - b);
-        
-        // 替换选中的图片
-        for (let i = 0; i < selectedImages.length; i++) {
-            const index = selectedImages[i];
-            const file = files[i];
-            
-            // 检查文件类型和大小
-            if (!file.type.startsWith('image/')) {
-                alert(`文件 ${file.name} 不是图片，请重新选择`);
-                return;
-            }
-            
-            if (file.size > CONFIG.maxFileSize) {
-                alert(`文件 ${file.name} 超过最大文件大小限制 (${formatFileSize(CONFIG.maxFileSize)})`);
-                return;
-            }
-            
-            // 替换图片
-            uploadedImages[index] = {
-                file: file,
-                name: file.name,
-                size: file.size,
-                type: file.type
-            };
-        }
-        
-        // 清空选中数组
-        selectedImages = [];
-        
-        // 更新预览
-        displayPreview();
-        
-        // 更新压缩按钮状态
-        compressBtn.disabled = uploadedImages.length === 0;
-    };
-    
-    // 触发文件选择
-    tempFileInput.click();
 }
 
 // 显示图片预览
@@ -242,48 +113,46 @@ function displayPreview() {
     // 清空预览区域
     previewGrid.innerHTML = '';
     
-    // 显示图片数量和操作按钮
+    // 显示图片数量
     const infoDiv = document.createElement('div');
     infoDiv.className = 'preview-info';
-    infoDiv.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <p>共 ${uploadedImages.length} 张图片，总大小: ${formatFileSize(uploadedImages.reduce((sum, img) => sum + img.size, 0))}</p>
-            <div id="actionButtons" style="display: flex; gap: 10px;">
-                <button class="remove-btn delete-selected-btn" disabled onclick="deleteSelectedImages()">删除选中</button>
-                <button class="remove-btn replace-selected-btn" disabled onclick="replaceSelectedImages()">替换选中</button>
-            </div>
-        </div>
-    `;
+    infoDiv.innerHTML = `<p>共 ${uploadedImages.length} 张图片，总大小: ${formatFileSize(uploadedImages.reduce((sum, img) => sum + img.size, 0))}</p>`;
     previewGrid.appendChild(infoDiv);
     
-    // 显示所有图片的预览
-    uploadedImages.forEach((image, index) => {
+    // 只显示前20张图片的预览，避免内存占用过大
+    const displayCount = Math.min(20, uploadedImages.length);
+    
+    for (let i = 0; i < displayCount; i++) {
+        const image = uploadedImages[i];
         const reader = new FileReader();
         
         reader.onload = (e) => {
             const previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
             previewItem.innerHTML = `
-                <div class="preview-item-content">
-                    <div class="checkmark"></div>
-                    <img src="${e.target.result}" alt="${image.name}" class="preview-image">
-                </div>
+                <img src="${e.target.result}" alt="${image.name}" class="preview-image">
                 <div class="preview-info">
                     <div>${image.name}</div>
                     <div>${formatFileSize(image.size)}</div>
                 </div>
             `;
-            
-            // 添加点击事件，支持选择/取消选择
-            previewItem.addEventListener('click', () => {
-                toggleImageSelection(index);
-            });
-            
             previewGrid.appendChild(previewItem);
         };
         
         reader.readAsDataURL(image.file);
-    });
+    }
+    
+    // 如果图片数量超过20，显示剩余数量
+    if (uploadedImages.length > 20) {
+        const moreDiv = document.createElement('div');
+        moreDiv.className = 'preview-item';
+        moreDiv.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <p>... 还有 ${uploadedImages.length - 20} 张图片</p>
+            </div>
+        `;
+        previewGrid.appendChild(moreDiv);
+    }
     
     // 添加移除所有按钮
     const removeAllBtn = document.createElement('button');
@@ -291,7 +160,6 @@ function displayPreview() {
     removeAllBtn.textContent = '移除所有图片';
     removeAllBtn.onclick = () => {
         uploadedImages = [];
-        selectedImages = [];
         displayPreview();
         compressBtn.disabled = true;
     };
@@ -509,7 +377,7 @@ function displayResults() {
     }
     
     // 显示每张图片的结果
-    compressedImages.forEach((result, index) => {
+    compressedImages.forEach(result => {
         const resultItem = document.createElement('div');
         resultItem.className = 'result-item';
         
@@ -556,7 +424,7 @@ function displayTotalStats() {
     const totalOriginalSize = compressedImages.reduce((sum, img) => sum + img.original.size, 0);
     const totalCompressedSize = compressedImages.reduce((sum, img) => sum + img.compressed.size, 0);
     const totalSavings = totalOriginalSize - totalCompressedSize;
-    const totalSavingsPercent = totalOriginalSize > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
+    const totalSavingsPercent = totalOriginalSize > 0 ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1) : 0;
     
     totalStats.innerHTML = `
         <h3>总压缩统计</h3>
@@ -593,7 +461,7 @@ function displayTotalStats() {
 function downloadAllImages() {
     if (compressedImages.length === 0) return;
     
-    // 逐个下载图片
+    // 使用 zip.js 或其他库可以实现打包下载，这里简单实现逐个下载
     compressedImages.forEach(result => {
         const a = document.createElement('a');
         a.href = result.compressed.url;
@@ -618,37 +486,16 @@ function cleanupResources() {
     uploadedImages = [];
 }
 
-// 初始化
-function init() {
-    // 设置初始质量值
-    qualityValue.textContent = qualitySlider.value;
-    
-    // 禁用压缩按钮
-    compressBtn.disabled = true;
-    
-    // 隐藏结果区域
-    resultsSection.style.display = 'none';
-    
-    // 确保fileInput支持多选
-    fileInput.multiple = true;
-    fileInput.setAttribute('multiple', 'multiple');
-}
-
 // 事件监听
 
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', init);
+// 点击上传
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
+});
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
-    const files = e.target.files;
-    if (files.length > 0) {
-        handleFileUpload(files);
-    }
-    // 重置input值，允许重复选择相同文件
-    setTimeout(() => {
-        e.target.value = '';
-    }, 0);
+    handleFileUpload(e.target.files);
 });
 
 // 拖拽上传
@@ -675,3 +522,18 @@ downloadAllBtn.addEventListener('click', downloadAllImages);
 
 // 页面卸载时清理资源
 window.addEventListener('beforeunload', cleanupResources);
+
+// 初始化
+function init() {
+    // 设置初始质量值
+    qualityValue.textContent = qualitySlider.value;
+    
+    // 禁用压缩按钮
+    compressBtn.disabled = true;
+    
+    // 隐藏结果区域
+    resultsSection.style.display = 'none';
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
