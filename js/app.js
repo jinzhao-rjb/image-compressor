@@ -16,11 +16,11 @@ const downloadAllBtn = document.getElementById('downloadAllBtn');
 
 // 配置
 const CONFIG = {
-  maxConcurrent: 3,      // 最大并发压缩数
-  retryTimes: 2,          // 失败重试次数
-  chunkSize: 50,          // 每次处理的文件块大小
+  maxConcurrent: 5,      // 最大并发压缩数
+  retryTimes: 3,          // 失败重试次数
+  chunkSize: 100,         // 每次处理的文件块大小
   maxFileSize: 100 * 1024 * 1024,  // 最大文件大小 (100MB)
-  maxTotalSize: 1 * 1024 * 1024 * 1024  // 总文件大小限制 (1GB)
+  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)
 };
 
 // 存储数据
