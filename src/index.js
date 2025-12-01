@@ -1,0 +1,173 @@
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
+
+// 配置
+const CONFIG = {
+  inputDir: './input',
+  outputDir: './output',
+  quality: 85, // 压缩质量，1-100，越高画质越好
+  overwrite: true // 是否覆盖已存在的文件
+};
+
+// 支持的图片格式
+const SUPPORTED_FORMATS = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+
+// 确保目录存在
+function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+    console.log(`创建目录: ${dirPath}`);
+  }
+}
+
+// 检查文件是否为支持的图片格式
+function isSupportedImage(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return SUPPORTED_FORMATS.includes(ext);
+}
+
+// 获取文件大小（字节）
+function getFileSize(filePath) {
+  return fs.statSync(filePath).size;
+}
+
+// 格式化文件大小
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 压缩单张图片
+async function compressImage(inputPath, outputPath) {
+  try {
+    const ext = path.extname(inputPath).toLowerCase();
+    const metadata = await sharp(inputPath).metadata();
+    
+    let sharpInstance = sharp(inputPath);
+    
+    // 根据图片格式设置压缩选项
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg':
+        sharpInstance = sharpInstance.jpeg({
+          quality: CONFIG.quality,
+          mozjpeg: true, // 使用mozjpeg获得更好的压缩效果
+          progressive: true
+        });
+        break;
+      case '.png':
+        sharpInstance = sharpInstance.png({
+          quality: CONFIG.quality,
+          compressionLevel: 9, // PNG压缩级别，0-9
+          adaptiveFiltering: true
+        });
+        break;
+      case '.webp':
+        sharpInstance = sharpInstance.webp({
+          quality: CONFIG.quality,
+          lossless: false
+        });
+        break;
+      case '.gif':
+        // GIF压缩保持原有质量
+        sharpInstance = sharpInstance.gif();
+        break;
+    }
+    
+    // 输出图片
+    await sharpInstance.toFile(outputPath);
+    
+    return true;
+  } catch (error) {
+    console.error(`压缩失败 ${inputPath}:`, error.message);
+    return false;
+  }
+}
+
+// 压缩目录下所有图片
+async function compressDirectory() {
+  console.log('=== 图片压缩工具 ===');
+  console.log(`输入目录: ${CONFIG.inputDir}`);
+  console.log(`输出目录: ${CONFIG.outputDir}`);
+  console.log(`压缩质量: ${CONFIG.quality}`);
+  console.log('==================');
+  
+  // 确保目录存在
+  ensureDir(CONFIG.inputDir);
+  ensureDir(CONFIG.outputDir);
+  
+  // 读取输入目录
+  const files = fs.readdirSync(CONFIG.inputDir);
+  const imageFiles = files.filter(file => isSupportedImage(file));
+  
+  if (imageFiles.length === 0) {
+    console.log('输入目录中没有支持的图片文件');
+    return;
+  }
+  
+  console.log(`找到 ${imageFiles.length} 张图片，开始压缩...`);
+  console.log('==================');
+  
+  let totalOriginalSize = 0;
+  let totalCompressedSize = 0;
+  let successCount = 0;
+  let failCount = 0;
+  
+  // 遍历压缩图片
+  for (const file of imageFiles) {
+    const inputPath = path.join(CONFIG.inputDir, file);
+    const outputPath = path.join(CONFIG.outputDir, file);
+    
+    // 检查输出文件是否已存在
+    if (fs.existsSync(outputPath) && !CONFIG.overwrite) {
+      console.log(`跳过 ${file}: 输出文件已存在`);
+      continue;
+    }
+    
+    console.log(`压缩中: ${file}`);
+    
+    const originalSize = getFileSize(inputPath);
+    const success = await compressImage(inputPath, outputPath);
+    
+    if (success) {
+      const compressedSize = getFileSize(outputPath);
+      const savedSize = originalSize - compressedSize;
+      const savedPercent = originalSize > 0 ? ((savedSize / originalSize) * 100).toFixed(1) : 0;
+      
+      console.log(`✓ 成功: ${file}`);
+      console.log(`  原始大小: ${formatFileSize(originalSize)}`);
+      console.log(`  压缩后: ${formatFileSize(compressedSize)}`);
+      console.log(`  节省: ${formatFileSize(savedSize)} (${savedPercent}%)`);
+      
+      totalOriginalSize += originalSize;
+      totalCompressedSize += compressedSize;
+      successCount++;
+    } else {
+      console.log(`✗ 失败: ${file}`);
+      failCount++;
+    }
+    
+    console.log('------------------');
+  }
+  
+  // 输出统计信息
+  console.log('==================');
+  console.log('压缩完成！');
+  console.log(`成功: ${successCount} 张`);
+  console.log(`失败: ${failCount} 张`);
+  
+  const totalSavedSize = totalOriginalSize - totalCompressedSize;
+  const totalSavedPercent = totalOriginalSize > 0 ? ((totalSavedSize / totalOriginalSize) * 100).toFixed(1) : 0;
+  
+  console.log(`总原始大小: ${formatFileSize(totalOriginalSize)}`);
+  console.log(`总压缩后: ${formatFileSize(totalCompressedSize)}`);
+  console.log(`总节省: ${formatFileSize(totalSavedSize)} (${totalSavedPercent}%)`);
+  console.log('==================');
+}
+
+// 执行压缩
+compressDirectory();
