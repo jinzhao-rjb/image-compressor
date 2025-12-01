@@ -28,7 +28,7 @@ npm install
 2. 运行压缩命令：
 
 ```bash
-node index.js
+node src/index.js
 ```
 
 3. 压缩后的图片将保存到 `output` 目录
