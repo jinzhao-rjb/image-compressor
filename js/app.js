@@ -685,9 +685,33 @@ try {
     console.error('Failed to style file input:', e);
 }
 
+// 确保fileInput支持多选，添加移动端兼容性处理
+function ensureMultiSelectSupport() {
+    // 明确设置multiple属性为true
+    fileInput.setAttribute('multiple', 'multiple');
+    fileInput.multiple = true;
+    
+    // 添加移动端兼容性属性
+    fileInput.setAttribute('capture', 'false');
+    fileInput.setAttribute('webkitdirectory', 'false');
+    fileInput.setAttribute('directory', 'false');
+    
+    // 移除可能导致单选的属性
+    fileInput.removeAttribute('webkitallowfullscreen');
+    fileInput.removeAttribute('mozallowfullscreen');
+    fileInput.removeAttribute('allowfullscreen');
+}
+
+// 页面加载时调用，确保支持多选
+document.addEventListener('DOMContentLoaded', () => {
+    ensureMultiSelectSupport();
+    init();
+});
+
 // 文件选择
 fileInput.addEventListener('change', (e) => {
-    const files = e.target.files;
+    // 修复移动端浏览器files对象获取问题
+    const files = e.target.files || e.dataTransfer?.files || [];
     if (files.length > 0) {
         handleFileUpload(files);
     }
@@ -696,6 +720,9 @@ fileInput.addEventListener('change', (e) => {
         e.target.value = '';
     }, 0);
 });
+
+// 添加窗口大小变化时的处理，确保fileInput始终正确显示
+window.addEventListener('resize', ensureMultiSelectSupport);
 
 // 拖拽上传
 uploadArea.addEventListener('dragover', (e) => {
@@ -734,5 +761,4 @@ function init() {
     resultsSection.style.display = 'none';
 }
 
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', init);
+// 页面加载完成后初始化已合并到上面的事件监听器中，不再单独调用
