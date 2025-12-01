@@ -48,13 +48,15 @@ qualitySlider.addEventListener('input', () => {
 
 // 处理文件上传
 function handleFileUpload(files) {
-    // 清空压缩相关数据
+    // 清空所有数据，包括已上传图片
+    uploadedImages = [];
     compressedImages = [];
     compressionProgress = 0;
     processedFiles = 0;
+    selectedImages = [];
     
     // 检查总文件大小
-    let totalSize = uploadedImages.reduce((sum, img) => sum + img.size, 0);
+    let totalSize = 0;
     const validFiles = [];
     
     // 遍历新选择的文件
@@ -77,7 +79,7 @@ function handleFileUpload(files) {
         return;
     }
     
-    // 遍历有效文件，添加到现有数组
+    // 遍历有效文件，添加到数组
     validFiles.forEach(file => {
         uploadedImages.push({
             file: file,
@@ -185,7 +187,7 @@ function replaceSelectedImages() {
     const tempFileInput = document.createElement('input');
     tempFileInput.type = 'file';
     tempFileInput.accept = 'image/*';
-    tempFileInput.multiple = selectedImages.length > 1;
+    tempFileInput.multiple = true;
     
     tempFileInput.onchange = (e) => {
         const files = e.target.files;
