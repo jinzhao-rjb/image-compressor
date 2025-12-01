@@ -290,11 +290,9 @@ function displayPreview() {
                 clearTimeout(longPressTimer);
             });
             
-            // 添加点击事件（已选中时可点击取消）
+            // 添加点击事件，支持直接点击选择/取消选择
             previewItem.addEventListener('click', () => {
-                if (selectedImages.length > 0) {
-                    toggleImageSelection(i);
-                }
+                toggleImageSelection(i);
             });
             
             previewGrid.appendChild(previewItem);
