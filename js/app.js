@@ -186,7 +186,7 @@ function replaceSelectedImages() {
     // 创建一个临时文件输入
     const tempFileInput = document.createElement('input');
     tempFileInput.type = 'file';
-    tempFileInput.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    tempFileInput.accept = 'image/*';
     tempFileInput.multiple = selectedImages.length > 1;
     
     tempFileInput.onchange = (e) => {
