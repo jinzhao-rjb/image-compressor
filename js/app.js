@@ -1,4 +1,4 @@
-// 图片压缩工具 JavaScript - 支持大量图片
+// 图片压缩工具 JavaScript - 支持移动端上传200张图片
 
 // DOM 元素
 const uploadArea = document.getElementById('uploadArea');
@@ -13,14 +13,19 @@ const resultsSection = document.getElementById('resultsSection');
 const resultsGrid = document.getElementById('resultsGrid');
 const totalStats = document.getElementById('totalStats');
 const downloadAllBtn = document.getElementById('downloadAllBtn');
+const selectedCountEl = document.getElementById('selectedCount');
+const totalSizeEl = document.getElementById('totalSize');
+const compressionProgressEl = document.getElementById('compressionProgress');
 
 // 配置
 const CONFIG = {
-  maxConcurrent: 10,      // 最大并发压缩数，提高到10以支持更多图片
-  retryTimes: 3,          // 失败重试次数
-  chunkSize: 200,         // 每次处理的文件块大小，设置为200以支持200张图片
-  maxFileSize: 100 * 1024 * 1024,  // 最大文件大小 (100MB)
-  maxTotalSize: 2 * 1024 * 1024 * 1024  // 总文件大小限制 (2GB)，对于200张图片足够
+  maxConcurrent: 3,      // 最大并发压缩数，移动端优化
+  retryTimes: 2,          // 失败重试次数
+  chunkSize: 50,          // 每次处理的文件块大小
+  maxFileSize: 100 * 1024 * 1024,  // 单个文件最大100MB
+  maxTotalSize: 2 * 1024 * 1024 * 1024, // 总文件大小最大2GB
+  maxImages: 200,         // 单次最大上传图片数
+  previewLimit: 20        // 预览图片数量限制
 };
 
 // 存储数据
@@ -30,7 +35,7 @@ let compressionProgress = 0;
 let totalFiles = 0;
 let processedFiles = 0;
 let isCompressing = false;
-let selectedImages = [];
+let totalSize = 0;
 
 // 格式化文件大小
 function formatFileSize(bytes) {
@@ -46,20 +51,34 @@ qualitySlider.addEventListener('input', () => {
     qualityValue.textContent = qualitySlider.value;
 });
 
+// 更新统计信息
+function updateStats() {
+    selectedCountEl.textContent = uploadedImages.length;
+    totalSizeEl.textContent = formatFileSize(totalSize);
+    compressionProgressEl.textContent = `${compressionProgress}%`;
+}
+
 // 处理文件上传
 function handleFileUpload(files) {
-    // 清空所有数据，包括已上传图片
+    // 清空现有数据
+    cleanupResources();
     uploadedImages = [];
     compressedImages = [];
     compressionProgress = 0;
+    totalFiles = 0;
     processedFiles = 0;
-    selectedImages = [];
+    totalSize = 0;
+    
+    // 检查文件数量
+    if (files.length > CONFIG.maxImages) {
+        alert(`单次最多只能上传${CONFIG.maxImages}张图片，请减少文件数量`);
+        return;
+    }
     
     // 检查总文件大小
-    let totalSize = 0;
+    let currentTotalSize = 0;
     const validFiles = [];
     
-    // 遍历新选择的文件
     Array.from(files).forEach(file => {
         if (file.type.startsWith('image/')) {
             // 检查单个文件大小
@@ -69,23 +88,26 @@ function handleFileUpload(files) {
             }
             
             validFiles.push(file);
-            totalSize += file.size;
+            currentTotalSize += file.size;
         }
     });
     
     // 检查总文件大小
-    if (totalSize > CONFIG.maxTotalSize) {
+    if (currentTotalSize > CONFIG.maxTotalSize) {
         alert(`总文件大小超过限制 (${formatFileSize(CONFIG.maxTotalSize)})，请减少文件数量或大小`);
         return;
     }
     
-    // 遍历有效文件，添加到数组
+    totalSize = currentTotalSize;
+    
+    // 遍历有效文件
     validFiles.forEach(file => {
         uploadedImages.push({
             file: file,
             name: file.name,
             size: file.size,
-            type: file.type
+            type: file.type,
+            previewUrl: null
         });
     });
     
@@ -94,151 +116,14 @@ function handleFileUpload(files) {
     // 显示预览
     displayPreview();
     
-    // 启用压缩按钮
+    // 显示压缩按钮
     compressBtn.disabled = uploadedImages.length === 0;
     
     // 隐藏结果区域
     resultsSection.style.display = 'none';
-}
-
-// 切换图片选中状态
-function toggleImageSelection(index) {
-    // 获取所有图片预览项（不包括额外的提示项和按钮）
-    const previewItems = document.querySelectorAll('.preview-item');
-    let previewItem;
-    let actualIndex = -1;
     
-    // 遍历预览项，找到对应的图片预览项
-    for (let i = 0; i < previewItems.length; i++) {
-        const item = previewItems[i];
-        if (item.querySelector('.preview-image')) {
-            actualIndex++;
-            if (actualIndex === index) {
-                previewItem = item;
-                break;
-            }
-        }
-    }
-    
-    if (!previewItem) return;
-    
-    const isSelected = selectedImages.includes(index);
-    
-    if (isSelected) {
-        // 取消选中
-        selectedImages = selectedImages.filter(i => i !== index);
-        previewItem.classList.remove('selected');
-    } else {
-        // 选中
-        selectedImages.push(index);
-        previewItem.classList.add('selected');
-    }
-    
-    // 更新操作按钮状态
-    updateActionButtons();
-}
-
-// 更新操作按钮状态
-function updateActionButtons() {
-    const actionButtons = document.getElementById('actionButtons');
-    if (!actionButtons) return;
-    
-    const deleteBtn = actionButtons.querySelector('.delete-selected-btn');
-    const replaceBtn = actionButtons.querySelector('.replace-selected-btn');
-    
-    if (selectedImages.length > 0) {
-        deleteBtn.disabled = false;
-        replaceBtn.disabled = false;
-    } else {
-        deleteBtn.disabled = true;
-        replaceBtn.disabled = true;
-    }
-}
-
-// 删除选中图片
-function deleteSelectedImages() {
-    if (selectedImages.length === 0) return;
-    
-    if (confirm(`确定要删除选中的 ${selectedImages.length} 张图片吗？`)) {
-        // 按索引从大到小排序，避免删除后索引混乱
-        selectedImages.sort((a, b) => b - a);
-        
-        // 删除选中的图片
-        selectedImages.forEach(index => {
-            uploadedImages.splice(index, 1);
-        });
-        
-        // 清空选中数组
-        selectedImages = [];
-        
-        // 更新预览
-        displayPreview();
-        
-        // 更新压缩按钮状态
-        compressBtn.disabled = uploadedImages.length === 0;
-    }
-}
-
-// 替换选中图片
-function replaceSelectedImages() {
-    if (selectedImages.length === 0) return;
-    
-    // 创建一个临时文件输入
-    const tempFileInput = document.createElement('input');
-    tempFileInput.type = 'file';
-    tempFileInput.accept = 'image/*';
-    tempFileInput.multiple = true;
-    
-    tempFileInput.onchange = (e) => {
-        const files = e.target.files;
-        if (files.length === 0) return;
-        
-        // 检查替换图片数量
-        if (files.length !== selectedImages.length) {
-            alert(`请选择 ${selectedImages.length} 张图片进行替换`);
-            return;
-        }
-        
-        // 按索引从小到大排序
-        selectedImages.sort((a, b) => a - b);
-        
-        // 替换选中的图片
-        for (let i = 0; i < selectedImages.length; i++) {
-            const index = selectedImages[i];
-            const file = files[i];
-            
-            // 检查文件类型和大小
-            if (!file.type.startsWith('image/')) {
-                alert(`文件 ${file.name} 不是图片，请重新选择`);
-                return;
-            }
-            
-            if (file.size > CONFIG.maxFileSize) {
-                alert(`文件 ${file.name} 超过最大文件大小限制 (${formatFileSize(CONFIG.maxFileSize)})`);
-                return;
-            }
-            
-            // 替换图片
-            uploadedImages[index] = {
-                file: file,
-                name: file.name,
-                size: file.size,
-                type: file.type
-            };
-        }
-        
-        // 清空选中数组
-        selectedImages = [];
-        
-        // 更新预览
-        displayPreview();
-        
-        // 更新压缩按钮状态
-        compressBtn.disabled = uploadedImages.length === 0;
-    };
-    
-    // 触发文件选择
-    tempFileInput.click();
+    // 更新统计
+    updateStats();
 }
 
 // 显示图片预览
@@ -255,82 +140,40 @@ function displayPreview() {
     // 清空预览区域
     previewGrid.innerHTML = '';
     
-    // 显示图片数量和操作按钮
-    const infoDiv = document.createElement('div');
-    infoDiv.className = 'preview-info';
-    infoDiv.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <p>共 ${uploadedImages.length} 张图片，总大小: ${formatFileSize(uploadedImages.reduce((sum, img) => sum + img.size, 0))}</p>
-            <div id="actionButtons" style="display: flex; gap: 10px;">
-                <button class="remove-btn delete-selected-btn" disabled onclick="deleteSelectedImages()">删除选中</button>
-                <button class="remove-btn replace-selected-btn" disabled onclick="replaceSelectedImages()">替换选中</button>
-            </div>
-        </div>
-    `;
-    previewGrid.appendChild(infoDiv);
+    // 只显示前N张图片预览，优化性能
+    const displayCount = Math.min(CONFIG.previewLimit, uploadedImages.length);
     
-    // 显示所有图片的预览，修复移动端勾选问题
-    for (let i = 0; i < uploadedImages.length; i++) {
+    for (let i = 0; i < displayCount; i++) {
         const image = uploadedImages[i];
         const reader = new FileReader();
-        const index = i; // 保存当前索引，避免闭包问题
         
         reader.onload = (e) => {
             const previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
             previewItem.innerHTML = `
-                <div class="preview-item-content">
-                    <div class="checkmark"></div>
-                    <img src="${e.target.result}" alt="${image.name}" class="preview-image">
-                </div>
+                <img src="${e.target.result}" alt="${image.name}" class="preview-image">
                 <div class="preview-info">
                     <div>${image.name}</div>
                     <div>${formatFileSize(image.size)}</div>
                 </div>
             `;
-            
-            // 添加触摸事件支持，修复移动端多选问题
-            let longPressTimer;
-            let isLongPress = false;
-            
-            previewItem.addEventListener('touchstart', (e) => {
-                isLongPress = false;
-                longPressTimer = setTimeout(() => {
-                    isLongPress = true;
-                    toggleImageSelection(index);
-                    e.preventDefault();
-                }, 500); // 500ms长按
-            });
-            
-            previewItem.addEventListener('touchend', (e) => {
-                clearTimeout(longPressTimer);
-                // 短点击也触发选择
-                if (!isLongPress) {
-                    toggleImageSelection(index);
-                    e.preventDefault();
-                }
-            });
-            
-            previewItem.addEventListener('touchmove', (e) => {
-                clearTimeout(longPressTimer);
-                e.preventDefault();
-            });
-            
-            // 添加点击事件，支持桌面端直接点击选择/取消选择
-            previewItem.addEventListener('click', (e) => {
-                // 避免触摸事件和点击事件冲突
-                if (!isLongPress) {
-                    toggleImageSelection(index);
-                }
-            });
-            
             previewGrid.appendChild(previewItem);
         };
         
         reader.readAsDataURL(image.file);
     }
     
-    // 移除显示剩余数量的提示，现在显示所有图片
+    // 如果图片数量超过预览限制，显示更多提示
+    if (uploadedImages.length > CONFIG.previewLimit) {
+        const moreDiv = document.createElement('div');
+        moreDiv.className = 'preview-item';
+        moreDiv.innerHTML = `
+            <div style="padding: 20px; text-align: center;">
+                <p>... 还有 ${uploadedImages.length - CONFIG.previewLimit} 张图片</p>
+            </div>
+        `;
+        previewGrid.appendChild(moreDiv);
+    }
     
     // 添加移除所有按钮
     const removeAllBtn = document.createElement('button');
@@ -338,9 +181,10 @@ function displayPreview() {
     removeAllBtn.textContent = '移除所有图片';
     removeAllBtn.onclick = () => {
         uploadedImages = [];
-        selectedImages = [];
+        totalSize = 0;
         displayPreview();
         compressBtn.disabled = true;
+        updateStats();
     };
     previewGrid.appendChild(removeAllBtn);
 }
@@ -363,7 +207,7 @@ async function compressImages() {
     compressBtn.innerHTML = '<span class="loading"></span> 压缩中...';
     
     try {
-        // 分块处理图片
+        // 分块处理图片，优化移动端性能
         for (let i = 0; i < uploadedImages.length; i += CONFIG.chunkSize) {
             const chunk = uploadedImages.slice(i, i + CONFIG.chunkSize);
             await compressImageChunk(chunk);
@@ -402,7 +246,7 @@ async function compressImageChunk(imageChunk) {
                 results.push(result);
             }
             processedFiles++;
-            updateProgress();
+            updateCompressionProgress();
         }
     }
     
@@ -411,6 +255,12 @@ async function compressImageChunk(imageChunk) {
     
     // 添加到结果数组
     compressedImages.push(...results);
+}
+
+// 更新压缩进度
+function updateCompressionProgress() {
+    compressionProgress = Math.round((processedFiles / totalFiles) * 100);
+    compressionProgressEl.textContent = `${compressionProgress}%`;
 }
 
 // 压缩单张图片，支持重试
@@ -519,12 +369,6 @@ async function compressSingleImage(image, retryCount = 0) {
     });
 }
 
-// 更新压缩进度
-function updateProgress() {
-    compressionProgress = Math.round((processedFiles / totalFiles) * 100);
-    compressBtn.innerHTML = `<span class="loading"></span> 压缩中... ${compressionProgress}%`;
-}
-
 // 显示压缩结果
 function displayResults() {
     if (compressedImages.length === 0) {
@@ -539,15 +383,7 @@ function displayResults() {
     // 添加替换原文件提示
     if (replaceOriginalCheckbox.checked) {
         const replaceHint = document.createElement('div');
-        replaceHint.style.cssText = `
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 600;
-        `;
+        replaceHint.className = 'error-message';
         replaceHint.innerHTML = `
             <p>💡 提示：由于浏览器安全限制，无法直接修改您的本地文件。</p>
             <p>请手动将下载的图片替换原文件，或使用命令行版本的 --replace 选项自动替换。</p>
@@ -603,7 +439,7 @@ function displayTotalStats() {
     const totalOriginalSize = compressedImages.reduce((sum, img) => sum + img.original.size, 0);
     const totalCompressedSize = compressedImages.reduce((sum, img) => sum + img.compressed.size, 0);
     const totalSavings = totalOriginalSize - totalCompressedSize;
-    const totalSavingsPercent = totalOriginalSize > 0 ? ((1 - totalCompressedSize / totalOriginalSize) * 100).toFixed(1) : 0;
+    const totalSavingsPercent = totalOriginalSize > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
     
     totalStats.innerHTML = `
         <h3>总压缩统计</h3>
@@ -640,17 +476,16 @@ function displayTotalStats() {
 function downloadAllImages() {
     if (compressedImages.length === 0) return;
     
-    // 使用 zip.js 或其他库可以实现打包下载，这里简单实现逐个下载
-    compressedImages.forEach(result => {
-        const a = document.createElement('a');
-        a.href = result.compressed.url;
-        a.download = result.compressed.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        // 延迟下载，避免浏览器阻塞
-        setTimeout(() => {}, 100);
+    // 优化移动端下载体验，添加延迟避免浏览器阻塞
+    compressedImages.forEach((result, index) => {
+        setTimeout(() => {
+            const a = document.createElement('a');
+            a.href = result.compressed.url;
+            a.download = result.compressed.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }, index * 100); // 每张图片延迟100ms下载
     });
 }
 
@@ -661,68 +496,25 @@ function cleanupResources() {
         URL.revokeObjectURL(result.compressed.url);
     });
     
-    compressedImages = [];
-    uploadedImages = [];
+    // 释放预览 URL
+    uploadedImages.forEach(image => {
+        if (image.previewUrl) {
+            URL.revokeObjectURL(image.previewUrl);
+        }
+    });
 }
 
 // 事件监听
 
-// 移除uploadArea的点击事件监听器，因为fileInput已经覆盖整个区域
-// 点击uploadArea会自动触发fileInput，无需额外的点击事件
-    
-
-// 确保fileInput在移动端可以正常触发
-try {
-    // 修复移动端点击问题
-    fileInput.style.opacity = '0';
-    fileInput.style.position = 'absolute';
-    fileInput.style.top = '0';
-    fileInput.style.left = '0';
-    fileInput.style.width = '100%';
-    fileInput.style.height = '100%';
-    fileInput.style.cursor = 'pointer';
-} catch (e) {
-    console.error('Failed to style file input:', e);
-}
-
-// 确保fileInput支持多选，添加移动端兼容性处理
-function ensureMultiSelectSupport() {
-    // 明确设置multiple属性为true
-    fileInput.setAttribute('multiple', 'multiple');
-    fileInput.multiple = true;
-    
-    // 添加移动端兼容性属性
-    fileInput.setAttribute('capture', 'false');
-    fileInput.setAttribute('webkitdirectory', 'false');
-    fileInput.setAttribute('directory', 'false');
-    
-    // 移除可能导致单选的属性
-    fileInput.removeAttribute('webkitallowfullscreen');
-    fileInput.removeAttribute('mozallowfullscreen');
-    fileInput.removeAttribute('allowfullscreen');
-}
-
-// 页面加载时调用，确保支持多选
-document.addEventListener('DOMContentLoaded', () => {
-    ensureMultiSelectSupport();
-    init();
+// 点击上传
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
 });
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
-    // 修复移动端浏览器files对象获取问题
-    const files = e.target.files || e.dataTransfer?.files || [];
-    if (files.length > 0) {
-        handleFileUpload(files);
-    }
-    // 重置input值，允许重复选择相同文件
-    setTimeout(() => {
-        e.target.value = '';
-    }, 0);
+    handleFileUpload(e.target.files);
 });
-
-// 添加窗口大小变化时的处理，确保fileInput始终正确显示
-window.addEventListener('resize', ensureMultiSelectSupport);
 
 // 拖拽上传
 uploadArea.addEventListener('dragover', (e) => {
@@ -759,6 +551,10 @@ function init() {
     
     // 隐藏结果区域
     resultsSection.style.display = 'none';
+    
+    // 更新统计
+    updateStats();
 }
 
-// 页面加载完成后初始化已合并到上面的事件监听器中，不再单独调用
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', init);
