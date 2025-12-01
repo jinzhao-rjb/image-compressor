@@ -273,26 +273,39 @@ function displayPreview() {
                 </div>
             `;
             
-            // 添加长按事件
+            // 添加触摸事件支持，修复移动端多选问题
             let longPressTimer;
+            let isLongPress = false;
+            
             previewItem.addEventListener('touchstart', (e) => {
+                isLongPress = false;
                 longPressTimer = setTimeout(() => {
+                    isLongPress = true;
                     toggleImageSelection(i);
                     e.preventDefault();
                 }, 500); // 500ms长按
             });
             
-            previewItem.addEventListener('touchend', () => {
+            previewItem.addEventListener('touchend', (e) => {
                 clearTimeout(longPressTimer);
+                // 短点击也触发选择
+                if (!isLongPress) {
+                    toggleImageSelection(i);
+                    e.preventDefault();
+                }
             });
             
-            previewItem.addEventListener('touchmove', () => {
+            previewItem.addEventListener('touchmove', (e) => {
                 clearTimeout(longPressTimer);
+                e.preventDefault();
             });
             
-            // 添加点击事件，支持直接点击选择/取消选择
-            previewItem.addEventListener('click', () => {
-                toggleImageSelection(i);
+            // 添加点击事件，支持桌面端直接点击选择/取消选择
+            previewItem.addEventListener('click', (e) => {
+                // 避免触摸事件和点击事件冲突
+                if (!isLongPress) {
+                    toggleImageSelection(i);
+                }
             });
             
             previewGrid.appendChild(previewItem);
