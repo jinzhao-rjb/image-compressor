@@ -488,10 +488,7 @@ function cleanupResources() {
 
 // 事件监听
 
-// 点击上传
-uploadArea.addEventListener('click', () => {
-    fileInput.click();
-});
+// 点击上传 - 移除多余的点击事件，文件输入元素已覆盖整个上传区域
 
 // 文件选择
 fileInput.addEventListener('change', (e) => {
