@@ -13,7 +13,7 @@
             <h1>图片压缩工具</h1>
             <p>压缩后画质几乎不变，支持多种图片格式</p>
         </header>
-        
+
         <main>
             <section class="upload-section">
                 <div class="upload-area" id="uploadArea">
@@ -21,10 +21,10 @@
                         <div class="upload-icon">📁</div>
                         <h3>点击或拖拽图片到此处</h3>
                         <p>支持 JPG、JPEG、PNG、WebP、GIF 格式</p>
-                        <input type="file" id="fileInput" accept="image/*" multiple capture="false" webkitdirectory="false" directory="false">
                     </div>
+                    <input type="file" id="fileInput" accept="image/*" multiple>
                 </div>
-                
+
                 <div class="options-section">
                     <div class="option-group">
                         <label for="quality">压缩质量：</label>
@@ -33,7 +33,7 @@
                             <span id="qualityValue">85</span>
                         </div>
                     </div>
-                    
+
                     <div class="option-group">
                         <label for="format">输出格式：</label>
                         <select id="format">
@@ -43,18 +43,18 @@
                             <option value="webp">WebP</option>
                         </select>
                     </div>
-                    
+
                     <div class="option-group">
-                        <label for="replaceOriginal">
+                        <label>
                             <input type="checkbox" id="replaceOriginal">
                             压缩后替代原文件
                         </label>
                     </div>
-                    
-                    <button id="compressBtn" class="compress-btn">开始压缩</button>
+
+                    <button id="compressBtn" class="compress-btn" type="button">开始压缩</button>
                 </div>
             </section>
-            
+
             <section class="preview-section">
                 <h2>图片预览</h2>
                 <div class="preview-grid" id="previewGrid">
@@ -63,20 +63,20 @@
                     </div>
                 </div>
             </section>
-            
+
             <section class="results-section" id="resultsSection" style="display: none;">
                 <h2>压缩结果</h2>
                 <div class="results-grid" id="resultsGrid"></div>
                 <div class="total-stats" id="totalStats"></div>
-                <button id="downloadAllBtn" class="download-all-btn">下载全部</button>
+                <button id="downloadAllBtn" class="download-all-btn" type="button">下载全部</button>
             </section>
         </main>
-        
+
         <footer>
             <p>&copy; 2025 图片压缩工具 | 基于 Node.js 和 Sharp 库</p>
         </footer>
     </div>
-    
+
     <script src="js/app.js"></script>
 </body>
 </html>
