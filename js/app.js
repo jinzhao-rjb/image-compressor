@@ -318,17 +318,33 @@ async function compressSingleImage(image, retryCount = 0) {
                         outputName = `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`;
                     }
                     
+                    // 智能判断：如果压缩后大小增大，使用原图
+                    let finalBlob = blob;
+                    let finalSize = blob.size;
+                    let finalUrl = URL.createObjectURL(blob);
+                    let finalMimeType = mimeType;
+                    let finalName = outputName;
+                    
+                    // 如果压缩后变大，使用原图
+                    if (blob.size >= image.size) {
+                        finalBlob = image.file;
+                        finalSize = image.size;
+                        finalUrl = URL.createObjectURL(image.file);
+                        finalMimeType = image.type;
+                        finalName = image.name;
+                    }
+                    
                     const compressedImage = {
                         original: image,
                         compressed: {
-                            blob: blob,
-                            size: blob.size,
-                            url: URL.createObjectURL(blob),
-                            name: outputName,
-                            mimeType: mimeType
+                            blob: finalBlob,
+                            size: finalSize,
+                            url: finalUrl,
+                            name: finalName,
+                            mimeType: finalMimeType
                         },
-                        savings: image.size - blob.size,
-                        savingsPercent: ((1 - blob.size / image.size) * 100).toFixed(1)
+                        savings: image.size - finalSize,
+                        savingsPercent: ((1 - finalSize / image.size) * 100).toFixed(1)
                     };
                     
                     resolve(compressedImage);
