@@ -268,11 +268,22 @@ async function compressImage(imageData, quality, format, index) {
             
             // 转换为Blob
             canvas.toBlob((blob) => {
+                let finalBlob = blob;
+                let finalSize = blob.size;
+                
+                // 比较压缩前后大小，如果压缩后更大，则使用原文件
+                if (finalSize >= imageData.file.size) {
+                    finalBlob = imageData.file;
+                    finalSize = imageData.file.size;
+                    // 保持原格式
+                    outputFormat = imageData.file.type.split('/')[1];
+                }
+                
                 const compressedData = {
                     original: imageData,
                     compressed: {
-                        blob: blob,
-                        size: blob.size,
+                        blob: finalBlob,
+                        size: finalSize,
                         width: img.width,
                         height: img.height,
                         format: outputFormat
