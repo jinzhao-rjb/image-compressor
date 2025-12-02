@@ -1,11 +1,70 @@
 // 图片压缩工具的JavaScript代码
 
 // 全局变量
-let uploadedImages = []; // 存储已上传的图片
-let selectedImages = new Set(); // 存储选中的图片索引
-let compressedResults = []; // 存储压缩结果
-let selectedCompressedImages = new Set(); // 存储选中的压缩图片索引
-let compressBtn; // 压缩按钮全局变量
+var uploadedImages = []; // 存储已上传的图片
+var selectedImages = []; // 存储选中的图片索引（使用数组替代Set，提升兼容性）
+var compressedResults = []; // 存储压缩结果
+var selectedCompressedImages = []; // 存储选中的压缩图片索引（使用数组替代Set，提升兼容性）
+var compressBtn; // 压缩按钮全局变量
+
+// 添加Array.from的polyfill
+if (!Array.from) {
+  Array.from = function (object) {
+    return [].slice.call(object);
+  };
+}
+
+// 添加Set的polyfill（如果需要）
+if (typeof Set === 'undefined') {
+  window.Set = function() {
+    this.values = [];
+  };
+  Set.prototype.add = function(value) {
+    if (!this.has(value)) {
+      this.values.push(value);
+    }
+  };
+  Set.prototype.has = function(value) {
+    return this.values.indexOf(value) !== -1;
+  };
+  Set.prototype.delete = function(value) {
+    var index = this.values.indexOf(value);
+    if (index !== -1) {
+      this.values.splice(index, 1);
+    }
+  };
+  Set.prototype.values = function() {
+    return this.values;
+  };
+}
+
+// 添加Promise的polyfill
+if (typeof Promise === 'undefined') {
+  window.Promise = function(fn) {
+    var callbacks = [];
+    this.then = function(cb) {
+      callbacks.push(cb);
+      return this;
+    };
+    function resolve(value) {
+      setTimeout(function() {
+        callbacks.forEach(function(cb) {
+          cb(value);
+        });
+      }, 0);
+    }
+    fn(resolve);
+  };
+}
+
+// 添加forEach的polyfill
+if (typeof Array.prototype.forEach === 'undefined') {
+  Array.prototype.forEach = function(callback) {
+    for (var i = 0; i < this.length; i++) {
+      callback(this[i], i, this);
+    }
+  };
+}
 
 // 页面加载完成后初始化
  document.addEventListener('DOMContentLoaded', function() {
@@ -168,33 +227,46 @@ function updateMonthFilterOptions() {
     const currentValue = monthFilter.value;
     
     // 获取所有唯一的年月组合
-    const uniqueMonths = new Set();
-    uploadedImages.forEach(imageData => {
-        uniqueMonths.add(`${imageData.year}-${imageData.month}`);
+    var uniqueMonths = [];
+    uploadedImages.forEach(function(imageData) {
+        var monthKey = imageData.year + '-' + imageData.month;
+        if (uniqueMonths.indexOf(monthKey) === -1) {
+            uniqueMonths.push(monthKey);
+        }
     });
     
     // 只在月份组合变化时更新选项
-    const currentOptions = new Set();
-    for (let i = 1; i < monthFilter.options.length; i++) {
-        currentOptions.add(monthFilter.options[i].value);
+    var currentOptions = [];
+    for (var i = 1; i < monthFilter.options.length; i++) {
+        currentOptions.push(monthFilter.options[i].value);
     }
     
-    const newMonths = Array.from(uniqueMonths).sort().reverse();
-    const needUpdate = newMonths.length !== currentOptions.size || 
-                      newMonths.some(month => !currentOptions.has(month));
+    var newMonths = uniqueMonths.sort().reverse();
+    var needUpdate = newMonths.length !== currentOptions.length;
+    if (!needUpdate) {
+        for (var m = 0; m < newMonths.length; m++) {
+            if (currentOptions.indexOf(newMonths[m]) === -1) {
+                needUpdate = true;
+                break;
+            }
+        }
+    }
     
     if (needUpdate) {
         // 清空现有选项，保留"全部月份"
         monthFilter.innerHTML = '<option value="all">全部月份</option>';
         
         // 批量添加唯一的年月选项
-        newMonths.forEach(monthStr => {
-            const [year, month] = monthStr.split('-');
-            const option = document.createElement('option');
-            option.value = monthStr;
-            option.textContent = `${year}年${month}月`;
-            monthFilter.appendChild(option);
-        });
+        for (var i = 0; i < newMonths.length; i++) {
+        var monthStr = newMonths[i];
+        var yearMonth = monthStr.split('-');
+        var year = yearMonth[0];
+        var month = yearMonth[1];
+        var option = document.createElement('option');
+        option.value = monthStr;
+        option.textContent = year + '年' + month + '月';
+        monthFilter.appendChild(option);
+    }
         
         // 恢复之前的选中值或默认选中"全部月份"
         monthFilter.value = currentValue || 'all';
@@ -205,24 +277,28 @@ function updateMonthFilterOptions() {
 function renderImagePreview(imageData, index) {
     const previewContainer = document.getElementById('preview-container');
     const imageItem = document.createElement('div');
-    imageItem.className = `image-item bg-gray-100 rounded-lg p-2 ${selectedImages.has(index) ? 'selected' : ''}`;
+    var selectedClass = selectedImages.indexOf(index) !== -1 ? 'selected' : '';
+    imageItem.className = 'image-item bg-gray-100 rounded-lg p-2 ' + selectedClass;
     imageItem.dataset.index = index;
     
     // 添加月份显示
-    const monthDisplay = imageData.month ? `<div class="text-xs text-gray-400">${imageData.year}年${imageData.month}月</div>` : '';
+    var monthDisplay = '';
+    if (imageData.month) {
+        monthDisplay = '<div class="text-xs text-gray-400">' + imageData.year + '年' + imageData.month + '月</div>';
+    }
     
     // 直接创建完整的HTML结构，避免复杂的DOM操作
-    imageItem.innerHTML = `
-        <div class="relative">
-            <img src="${imageData.src}" alt="${imageData.name}" class="image-preview w-full rounded">
-            <div class="absolute top-1 right-1 bg-white rounded-full p-1">
-                <input type="checkbox" class="image-checkbox" data-index="${index}" style="width: 20px; height: 20px; cursor: pointer;" ${selectedImages.has(index) ? 'checked' : ''}>
-            </div>
-        </div>
-        <div class="mt-2 text-xs text-gray-600 truncate">${imageData.name}</div>
-        ${monthDisplay}
-        <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>
-    `;
+    var checkboxChecked = selectedImages.indexOf(index) !== -1 ? 'checked' : '';
+    imageItem.innerHTML = 
+        '<div class="relative">' +
+        '<img src="' + imageData.src + '" alt="' + imageData.name + '" class="image-preview w-full rounded">' +
+        '<div class="absolute top-1 right-1 bg-white rounded-full p-1">' +
+        '<input type="checkbox" class="image-checkbox" data-index="' + index + '" style="width: 20px; height: 20px; cursor: pointer;" ' + checkboxChecked + '>' +
+        '</div>' +
+        '</div>' +
+        '<div class="mt-2 text-xs text-gray-600 truncate">' + imageData.name + '</div>' +
+        monthDisplay +
+        '<div class="text-xs text-gray-500">' + formatFileSize(imageData.size) + '</div>';
     
     // 添加点击事件
     imageItem.addEventListener('click', function() {
@@ -241,15 +317,16 @@ function renderImagePreview(imageData, index) {
 
 // 切换图片选择状态
 function toggleImageSelection(index) {
-    const imageItem = document.querySelector(`[data-index="${index}"]`);
-    const checkbox = imageItem.querySelector('.image-checkbox');
+    var imageItem = document.querySelector('[data-index="' + index + '"]');
+    var checkbox = imageItem.querySelector('.image-checkbox');
     
-    if (selectedImages.has(index)) {
-        selectedImages.delete(index);
+    var indexInArray = selectedImages.indexOf(index);
+    if (indexInArray !== -1) {
+        selectedImages.splice(indexInArray, 1);
         imageItem.classList.remove('selected');
         checkbox.checked = false;
     } else {
-        selectedImages.add(index);
+        selectedImages.push(index);
         imageItem.classList.add('selected');
         checkbox.checked = true;
     }
@@ -257,40 +334,47 @@ function toggleImageSelection(index) {
 
 // 全选图片
 function selectAllImages() {
-    selectedImages.clear();
-    const imageItems = document.querySelectorAll('.image-item');
-    imageItems.forEach((item, index) => {
-        selectedImages.add(index);
+    selectedImages = [];
+    var imageItems = document.querySelectorAll('.image-item');
+    for (var i = 0; i < imageItems.length; i++) {
+        var item = imageItems[i];
+        selectedImages.push(i);
         item.classList.add('selected');
-        const checkbox = item.querySelector('.image-checkbox');
+        var checkbox = item.querySelector('.image-checkbox');
         checkbox.checked = true;
-    });
+    }
 }
 
 // 取消全选图片
 function deselectAllImages() {
-    selectedImages.clear();
-    const imageItems = document.querySelectorAll('.image-item');
-    imageItems.forEach((item) => {
+    selectedImages = [];
+    var imageItems = document.querySelectorAll('.image-item');
+    for (var i = 0; i < imageItems.length; i++) {
+        var item = imageItems[i];
         item.classList.remove('selected');
-        const checkbox = item.querySelector('.image-checkbox');
+        var checkbox = item.querySelector('.image-checkbox');
         checkbox.checked = false;
-    });
+    }
 }
 
 // 删除选中的图片
 function deleteSelectedImages() {
-    if (selectedImages.size === 0) {
+    if (selectedImages.length === 0) {
         alert('请先选择要删除的图片');
         return;
     }
     
     // 按索引降序删除，避免索引混乱
-    const sortedIndices = Array.from(selectedImages).sort((a, b) => b - a);
-    sortedIndices.forEach(index => {
-        uploadedImages.splice(index, 1);
-        selectedImages.delete(index);
+    var sortedIndices = selectedImages.slice().sort(function(a, b) {
+        return b - a;
     });
+    for (var i = 0; i < sortedIndices.length; i++) {
+        var index = sortedIndices[i];
+        uploadedImages.splice(index, 1);
+    }
+    
+    // 清空选择
+    selectedImages = [];
     
     // 重新渲染预览
     renderAllPreviews();
@@ -307,7 +391,7 @@ function renderAllPreviews() {
     
     uploadedImages.forEach((imageData, index) => {
         // 检查图片是否符合当前月份筛选条件
-        if (selectedMonth === 'all' || `${imageData.year}-${imageData.month}` === selectedMonth) {
+       394: if (selectedMonth === 'all' || (imageData.year + '-' + imageData.month) === selectedMonth) {
             renderImagePreview(imageData, index);
         }
     });
@@ -321,31 +405,42 @@ function compressImages() {
     }
     
     // 获取压缩设置
-    const quality = parseFloat(document.getElementById('quality').value);
-    const format = document.getElementById('format').value;
+    var quality = parseFloat(document.getElementById('quality').value);
+    var format = document.getElementById('format').value;
     
     // 显示加载状态
     compressBtn.innerHTML = '<span class="loading">压缩中...</span>';
     compressBtn.disabled = true;
     
-    // 压缩所有图片
-    const compressPromises = uploadedImages.map(async (imageData, index) => {
-        return compressImage(imageData, quality, format, index);
-    });
+    // 压缩所有图片 - 使用传统的回调方式替代Promise.all
+    var results = [];
+    var totalImages = uploadedImages.length;
+    var processedImages = 0;
     
-    // 等待所有压缩完成
-    Promise.all(compressPromises).then(results => {
-        // 渲染压缩结果
-        renderCompressionResults(results);
+    function handleImageCompressed(result) {
+        results.push(result);
+        processedImages++;
         
-        // 恢复按钮状态
-        compressBtn.innerHTML = '开始压缩';
-        compressBtn.disabled = false;
-    });
+        if (processedImages === totalImages) {
+            // 所有图片压缩完成，渲染结果
+            renderCompressionResults(results);
+            
+            // 恢复按钮状态
+            compressBtn.innerHTML = '开始压缩';
+            compressBtn.disabled = false;
+        }
+    }
+    
+    // 逐个压缩图片
+    for (var i = 0; i < uploadedImages.length; i++) {
+        compressImage(uploadedImages[i], quality, format, i).then(function(result) {
+            handleImageCompressed(result);
+        });
+    }
 }
 
 // 压缩单张图片
-async function compressImage(imageData, quality, format, index) {
+function compressImage(imageData, quality, format, index) {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = function() {
@@ -391,7 +486,7 @@ async function compressImage(imageData, quality, format, index) {
                     index: index
                 };
                 resolve(compressedData);
-            }, `image/${outputFormat}`, quality);
+           489: }, 'image/' + outputFormat, quality);
         };
         img.src = imageData.src;
     });
@@ -405,22 +500,24 @@ function renderCompressionResults(results) {
     // 存储压缩结果
     compressedResults = results;
     // 重置选中的压缩图片
-    selectedCompressedImages.clear();
+    selectedCompressedImages = [];
     
     // 清空结果容器
     resultContainer.innerHTML = '';
     
     // 渲染每个结果
-    results.forEach((result, index) => {
-        const resultItem = document.createElement('div');
+    for (var i = 0; i < results.length; i++) {
+        var result = results[i];
+        var index = i;
+        var resultItem = document.createElement('div');
         resultItem.className = 'border border-gray-200 rounded-lg p-4 mb-4';
         
         // 计算压缩率
-        const originalSize = result.original.size;
-        const compressedSize = result.compressed.size;
-        const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+        var originalSize = result.original.size;
+        var compressedSize = result.compressed.size;
+        var compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
         
-        resultItem.innerHTML = `
+        resultItem.innerHTML = '
             <div class="flex items-start mb-3">
                 <input type="checkbox" class="compressed-image-checkbox" id="compressed-checkbox-${index}" onchange="toggleCompressedImageSelection(${index})">
                 <label for="compressed-checkbox-${index}" class="ml-2 text-sm text-gray-600">选择</label>
@@ -479,19 +576,20 @@ function downloadImage(button, url, filename) {
 // 下载全部图片
 // 切换压缩图片选择状态
 function toggleCompressedImageSelection(index) {
-    if (selectedCompressedImages.has(index)) {
-        selectedCompressedImages.delete(index);
+    var indexInArray = selectedCompressedImages.indexOf(index);
+    if (indexInArray !== -1) {
+        selectedCompressedImages.splice(indexInArray, 1);
     } else {
-        selectedCompressedImages.add(index);
+        selectedCompressedImages.push(index);
     }
 }
 
 // 选择所有压缩图片
 function selectAllCompressedImages() {
-    selectedCompressedImages.clear();
-    for (let i = 0; i < compressedResults.length; i++) {
-        selectedCompressedImages.add(i);
-        const checkbox = document.getElementById(`compressed-checkbox-${i}`);
+    selectedCompressedImages = [];
+    for (var i = 0; i < compressedResults.length; i++) {
+        selectedCompressedImages.push(i);
+        var checkbox = document.getElementById('compressed-checkbox-' + i);
         if (checkbox) {
             checkbox.checked = true;
         }
@@ -500,9 +598,9 @@ function selectAllCompressedImages() {
 
 // 取消选择所有压缩图片
 function deselectAllCompressedImages() {
-    selectedCompressedImages.clear();
-    for (let i = 0; i < compressedResults.length; i++) {
-        const checkbox = document.getElementById(`compressed-checkbox-${i}`);
+    selectedCompressedImages = [];
+    for (var i = 0; i < compressedResults.length; i++) {
+        var checkbox = document.getElementById('compressed-checkbox-' + i);
         if (checkbox) {
             checkbox.checked = false;
         }
@@ -518,12 +616,15 @@ function downloadAllImages() {
     
     // 检查是否有选中的图片，如果没有则默认下载全部
     let imagesToDownload;
-    if (selectedCompressedImages.size === 0) {
+    if (selectedCompressedImages.length === 0) {
         // 默认下载全部
-        imagesToDownload = Array.from({ length: compressedResults.length }, (_, i) => i);
+        imagesToDownload = [];
+        for (var i = 0; i < compressedResults.length; i++) {
+            imagesToDownload.push(i);
+        }
     } else {
         // 下载选中的图片
-        imagesToDownload = Array.from(selectedCompressedImages);
+        imagesToDownload = selectedCompressedImages.slice();
     }
     
     const count = imagesToDownload.length;
@@ -535,7 +636,7 @@ function downloadAllImages() {
 // 打包成zip文件下载
 function zipDownloadImages(imagesToDownload) {
     const count = imagesToDownload.length;
-    alert(`正在打包 ${count} 张图片，请稍候...`);
+   639: alert('正在打包 ' + count + ' 张图片，请稍候...');
     
     // 创建JSZip实例
     const zip = new JSZip();
@@ -548,14 +649,14 @@ function zipDownloadImages(imagesToDownload) {
         const result = compressedResults[index];
         if (result) {
             const promise = new Promise((resolve) => {
-                const compressedData = result.compressed;
-                const originalFile = result.original.file;
-                const originalName = originalFile.name;
-                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+                var compressedData = result.compressed;
+                var originalFile = result.original.file;
+                var originalName = originalFile.name;
+                var filename = originalName.split('.')[0] + '_compressed.' + compressedData.format;
                 
                 // 将Blob转换为ArrayBuffer，JSZip需要ArrayBuffer
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = function(e) {
                     // 将图片添加到zip文件夹
                     imageFolder.file(filename, e.target.result);
                     resolve();
@@ -578,7 +679,7 @@ function zipDownloadImages(imagesToDownload) {
             const a = document.createElement('a');
             const blobUrl = URL.createObjectURL(zipBlob);
             a.href = blobUrl;
-            a.download = `compressed_images_${new Date().getTime()}.zip`;
+           682: a.download = 'compressed_images_' + new Date().getTime() + '.zip';
             document.body.appendChild(a);
             
             // 触发下载
@@ -590,7 +691,7 @@ function zipDownloadImages(imagesToDownload) {
                 URL.revokeObjectURL(blobUrl);
             }, 100);
             
-            alert(`已生成zip文件，开始下载 ${count} 张图片`);
+           694: alert('已生成zip文件，开始下载 ' + count + ' 张图片');
         })
         .catch((error) => {
             console.error('生成zip文件失败:', error);
@@ -603,7 +704,7 @@ function individualDownloadImages(imagesToDownload) {
     const count = imagesToDownload.length;
     
     // 移动端优化：简洁的确认提示
-    if (!confirm(`即将下载 ${count} 张图片，是否继续？`)) {
+   707: if (!confirm('即将下载 ' + count + ' 张图片，是否继续？')) {
         return;
     }
     
@@ -613,14 +714,15 @@ function individualDownloadImages(imagesToDownload) {
     const downloadLinks = [];
     
     // 优化1：提前创建所有下载链接
-    imagesToDownload.forEach((index) => {
-        const result = compressedResults[index];
+    for (var i = 0; i < imagesToDownload.length; i++) {
+        var index = imagesToDownload[i];
+        var result = compressedResults[index];
         if (result) {
             try {
-                const compressedData = result.compressed;
-                const originalFile = result.original.file;
-                const originalName = originalFile.name;
-                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+                var compressedData = result.compressed;
+                var originalFile = result.original.file;
+                var originalName = originalFile.name;
+                var filename = originalName.split('.')[0] + '_compressed.' + compressedData.format;
                 
                 const a = document.createElement('a');
                 const blobUrl = URL.createObjectURL(compressedData.blob);
@@ -649,7 +751,7 @@ function individualDownloadImages(imagesToDownload) {
                 });
             }, DOWNLOAD_DELAY * 2);
             
-            alert(`已开始下载 ${downloadCount} 张图片`);
+           754: alert('已开始下载 ' + downloadCount + ' 张图片');
             return;
         }
         
