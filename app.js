@@ -106,48 +106,36 @@ function handleFileSelect(e) {
 
 // 处理上传的文件
 function processFiles(files) {
-    // 批量处理图片，减少DOM操作
-    const newImages = [];
-    
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.type.startsWith('image/')) {
-            // 获取文件的修改日期或当前日期作为月份依据
-            const fileDate = file.lastModifiedDate || new Date();
-            const month = fileDate.getMonth() + 1; // 月份从1开始
-            const year = fileDate.getFullYear();
-            
-            // 使用createObjectURL替代FileReader，提高速度
-            const objectUrl = URL.createObjectURL(file);
-            
-            const imageData = {
-                file: file,
-                src: objectUrl,
-                name: file.name,
-                size: file.size,
-                month: month,
-                year: year
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // 获取文件的修改日期或当前日期作为月份依据
+                const fileDate = file.lastModifiedDate || new Date();
+                const month = fileDate.getMonth() + 1; // 月份从1开始
+                const year = fileDate.getFullYear();
+                
+                const imageData = {
+                    file: file,
+                    src: e.target.result,
+                    name: file.name,
+                    size: file.size,
+                    month: month,
+                    year: year
+                };
+                const index = uploadedImages.length;
+                uploadedImages.push(imageData);
+                // 默认选择新上传的图片
+                selectedImages.add(index);
+                renderImagePreview(imageData, index);
+                
+                // 更新月份筛选选项
+                updateMonthFilterOptions();
             };
-            newImages.push(imageData);
+            reader.readAsDataURL(file);
         }
     }
-    
-    // 批量添加到上传列表
-    const startIndex = uploadedImages.length;
-    uploadedImages = [...uploadedImages, ...newImages];
-    
-    // 批量更新选中状态
-    newImages.forEach((_, index) => {
-        selectedImages.add(startIndex + index);
-    });
-    
-    // 批量渲染预览
-    newImages.forEach((imageData, index) => {
-        renderImagePreview(imageData, startIndex + index);
-    });
-    
-    // 只更新一次月份筛选选项
-    updateMonthFilterOptions();
 }
 
 // 更新月份筛选选项
@@ -202,43 +190,18 @@ function renderImagePreview(imageData, index) {
     // 添加月份显示
     const monthDisplay = imageData.month ? `<div class="text-xs text-gray-400">${imageData.year}年${imageData.month}月</div>` : '';
     
-    // 创建图片元素并设置加载优化
-    const img = document.createElement('img');
-    img.src = imageData.src;
-    img.alt = imageData.name;
-    img.className = 'image-preview w-full rounded';
-    img.loading = 'lazy'; // 懒加载
-    img.crossOrigin = 'anonymous';
-    
-    // 限制图片尺寸，提高渲染速度
-    img.onload = function() {
-        // 如果图片过大，创建缩略图
-        if (this.naturalWidth > 800 || this.naturalHeight > 800) {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const ratio = Math.min(800 / this.naturalWidth, 800 / this.naturalHeight);
-            canvas.width = this.naturalWidth * ratio;
-            canvas.height = this.naturalHeight * ratio;
-            
-            ctx.drawImage(this, 0, 0, canvas.width, canvas.height);
-            
-            // 更新图片src为缩略图
-            this.src = canvas.toDataURL('image/jpeg', 0.8);
-            // 释放原始object URL
-            URL.revokeObjectURL(imageData.src);
-            // 更新imageData的src
-            imageData.src = this.src;
-        }
-    };
-    
-    // 构建图片项HTML
-    const checkboxHtml = `<input type="checkbox" class="image-checkbox" data-index="${index}" style="width: 20px; height: 20px; cursor: pointer;" ${selectedImages.has(index) ? 'checked' : ''}>`;
-    const imageContainerHtml = `<div class="relative">${img.outerHTML}<div class="absolute top-1 right-1 bg-white rounded-full p-1">${checkboxHtml}</div></div>`;
-    
-    imageItem.innerHTML = `${imageContainerHtml}
+    // 直接创建完整的HTML结构，避免复杂的DOM操作
+    imageItem.innerHTML = `
+        <div class="relative">
+            <img src="${imageData.src}" alt="${imageData.name}" class="image-preview w-full rounded">
+            <div class="absolute top-1 right-1 bg-white rounded-full p-1">
+                <input type="checkbox" class="image-checkbox" data-index="${index}" style="width: 20px; height: 20px; cursor: pointer;" ${selectedImages.has(index) ? 'checked' : ''}>
+            </div>
+        </div>
         <div class="mt-2 text-xs text-gray-600 truncate">${imageData.name}</div>
         ${monthDisplay}
-        <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>`;
+        <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>
+    `;
     
     // 添加点击事件
     imageItem.addEventListener('click', function() {
