@@ -1,0 +1,24 @@
+{
+  "name": "image-compressor",
+  "version": "1.0.0",
+  "description": "图片压缩工具，压缩后画质不变，支持大量图片处理",
+  "main": "src/cli.js",
+  "scripts": {
+    "start": "node src/cli.js",
+    "compress": "node src/cli.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "image",
+    "compress",
+    "optimize",
+    "sharp",
+    "batch-processing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.33.5",
+    "yargs": "^17.7.2"
+  }
+}
