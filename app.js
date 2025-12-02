@@ -23,6 +23,7 @@ function initEventListeners() {
     const deleteSelectedBtn = document.getElementById('delete-selected');
     const downloadAllBtnElem = document.getElementById('download-all');
     const uploadBtn = document.getElementById('upload-btn');
+    const monthFilter = document.getElementById('month-filter');
 
     // 拖拽上传事件
     uploadArea.addEventListener('dragover', handleDragOver);
@@ -56,6 +57,50 @@ function initEventListeners() {
 
     // 下载全部事件
     downloadAllBtnElem.addEventListener('click', downloadAllImages);
+    
+    // 月份筛选事件
+    monthFilter.addEventListener('change', function() {
+        renderFilteredImages();
+    });
+}
+
+// 更新月份筛选下拉框
+function updateMonthFilter() {
+    const monthFilter = document.getElementById('month-filter');
+    const months = new Set();
+    
+    // 获取所有图片的月份
+    uploadedImages.forEach(image => {
+        months.add(image.month);
+    });
+    
+    // 清空现有选项（保留"全部月份"）
+    monthFilter.innerHTML = '<option value="all">全部月份</option>';
+    
+    // 添加月份选项（按降序排列）
+    Array.from(months).sort().reverse().forEach(month => {
+        const option = document.createElement('option');
+        option.value = month;
+        option.textContent = month;
+        monthFilter.appendChild(option);
+    });
+}
+
+// 渲染筛选后的图片
+function renderFilteredImages() {
+    const previewContainer = document.getElementById('preview-container');
+    const monthFilter = document.getElementById('month-filter');
+    const selectedMonth = monthFilter.value;
+    
+    // 清空预览容器
+    previewContainer.innerHTML = '';
+    
+    // 渲染符合条件的图片
+    uploadedImages.forEach((image, index) => {
+        if (selectedMonth === 'all' || image.month === selectedMonth) {
+            renderImagePreview(image, index);
+        }
+    });
 }
 
 // 拖拽事件处理
@@ -99,17 +144,26 @@ function processFiles(files) {
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = function(e) {
+                // 获取文件最后修改时间
+                const lastModified = new Date(file.lastModified);
+                // 提取月份信息（格式：YYYY-MM）
+                const month = lastModified.getFullYear() + '-' + String(lastModified.getMonth() + 1).padStart(2, '0');
+                
                 const imageData = {
                     file: file,
                     src: e.target.result,
                     name: file.name,
-                    size: file.size
+                    size: file.size,
+                    lastModified: lastModified,
+                    month: month
                 };
                 const index = uploadedImages.length;
                 uploadedImages.push(imageData);
                 // 默认选择新上传的图片
                 selectedImages.add(index);
-                renderImagePreview(imageData, index);
+                // 更新月份筛选器并重新渲染
+                updateMonthFilter();
+                renderFilteredImages();
             };
             reader.readAsDataURL(file);
         }
@@ -168,13 +222,15 @@ function toggleImageSelection(index) {
 // 全选图片
 function selectAllImages() {
     selectedImages.clear();
-    const imageItems = document.querySelectorAll('.image-item');
-    imageItems.forEach((item, index) => {
-        selectedImages.add(index);
-        item.classList.add('selected');
-        const checkbox = item.querySelector('.image-checkbox');
-        checkbox.checked = true;
+    const monthFilter = document.getElementById('month-filter');
+    const selectedMonth = monthFilter.value;
+    
+    uploadedImages.forEach((image, index) => {
+        if (selectedMonth === 'all' || image.month === selectedMonth) {
+            selectedImages.add(index);
+        }
     });
+    renderFilteredImages();
 }
 
 // 取消全选图片
@@ -208,12 +264,9 @@ function deleteSelectedImages() {
 
 // 重新渲染所有预览
 function renderAllPreviews() {
-    const previewContainer = document.getElementById('preview-container');
-    previewContainer.innerHTML = '';
-    
-    uploadedImages.forEach((imageData, index) => {
-        renderImagePreview(imageData, index);
-    });
+    // 更新月份筛选器并重新渲染
+    updateMonthFilter();
+    renderFilteredImages();
 }
 
 // 压缩图片
