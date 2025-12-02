@@ -182,18 +182,39 @@
                 <!-- 结果区域 -->
                 <div id="result-section" class="bg-white rounded-lg shadow-md p-6 mt-6 hidden">
                     <h3 class="text-xl font-semibold mb-4">压缩结果</h3>
+                    
+                    <!-- 总览统计 -->
+                    <div id="totalStats" class="bg-white p-4 rounded-lg shadow-md mb-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <p class="text-gray-500">总大小</p>
+                            <p id="totalSize" class="text-xl font-bold">0 MB</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-500">压缩率</p>
+                            <p id="totalCompressionRatio" class="text-xl font-bold">0%</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-500">节省空间</p>
+                            <p id="totalSpaceSaved" class="text-xl font-bold">0 MB</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-gray-500">选择数量</p>
+                            <p id="selectedCount" class="text-xl font-bold">0</p>
+                        </div>
+                    </div>
+                    
                     <div id="result-container" class="space-y-6">
                         <!-- 压缩结果将动态添加到这里 -->
                     </div>
                     <div class="mt-6 flex flex-wrap justify-center gap-4">
-                        <button onclick="selectAllCompressedImages()" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors text-sm">
-                            选择所有
+                        <button id="selectAllBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition duration-200">
+                            全选
                         </button>
-                        <button onclick="deselectAllCompressedImages()" class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition-colors text-sm">
-                            取消选择
+                        <button id="selectNoneBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-semibold transition duration-200">
+                            取消全选
                         </button>
-                        <button id="download-all" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors">
-                            下载全部
+                        <button id="downloadAllBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition duration-200">
+                            下载选中
                         </button>
                     </div>
                 </div>

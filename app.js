@@ -509,16 +509,8 @@ function downloadAllImages() {
     
     const count = imagesToDownload.length;
     
-    // 询问用户是否要打包下载
-    const useZip = confirm(`检测到 ${count} 张图片，是否要打包成zip文件一次性下载？\n\n确定：打包成zip文件下载\n取消：逐个下载`);
-    
-    if (useZip) {
-        // 使用JSZip打包下载
-        zipDownloadImages(imagesToDownload);
-    } else {
-        // 逐个下载
-        individualDownloadImages(imagesToDownload);
-    }
+    // 直接使用优化的逐个下载方式，确保移动端能一次性下载多张图片
+    individualDownloadImages(imagesToDownload);
 }
 
 // 打包成zip文件下载
@@ -587,25 +579,23 @@ function zipDownloadImages(imagesToDownload) {
         });
 }
 
-// 逐个下载图片
+// 逐个下载图片 - 优化移动端体验
 function individualDownloadImages(imagesToDownload) {
     const count = imagesToDownload.length;
-    if (!confirm(`即将逐个下载 ${count} 张图片，是否继续？`)) {
+    
+    // 移动端优化：简洁的确认提示
+    if (!confirm(`即将下载 ${count} 张图片，是否继续？`)) {
         return;
     }
     
     let downloadCount = 0;
     
-    // 创建下载函数
-    const downloadNext = (idx) => {
-        if (idx >= imagesToDownload.length) {
-            alert(`已开始下载 ${downloadCount} 张图片`);
-            return;
-        }
-        
-        const index = imagesToDownload[idx];
+    // 预创建所有下载链接，提高下载效率
+    const downloadLinks = [];
+    
+    // 优化1：提前创建所有下载链接
+    imagesToDownload.forEach((index) => {
         const result = compressedResults[index];
-        
         if (result) {
             try {
                 const compressedData = result.compressed;
@@ -613,23 +603,42 @@ function individualDownloadImages(imagesToDownload) {
                 const originalName = originalFile.name;
                 const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
                 
-                console.log(`准备下载第 ${idx + 1} 张图片:`, filename);
-                
-                // 创建下载链接
                 const a = document.createElement('a');
                 const blobUrl = URL.createObjectURL(compressedData.blob);
                 a.href = blobUrl;
                 a.download = filename;
-                document.body.appendChild(a);
-                
                 a.style.display = 'none';
                 
-                // 添加click事件监听，确保下载完成后清理资源
-                a.addEventListener('click', () => {
-                    setTimeout(() => {
-                        URL.revokeObjectURL(blobUrl);
-                    }, 100);
+                // 存储下载链接和URL对象，以便后续清理
+                downloadLinks.push({ a, blobUrl });
+            } catch (error) {
+                console.error('创建下载链接失败:', error);
+            }
+        }
+    });
+    
+    // 优化2：使用更短的延迟，提高下载速度
+    const DOWNLOAD_DELAY = 50; // 50ms延迟，比原来的100ms更快
+    
+    // 创建下载函数
+    const downloadNext = (idx) => {
+        if (idx >= downloadLinks.length) {
+            // 所有图片下载完成后清理资源
+            setTimeout(() => {
+                downloadLinks.forEach(link => {
+                    URL.revokeObjectURL(link.blobUrl);
                 });
+            }, DOWNLOAD_DELAY * 2);
+            
+            alert(`已开始下载 ${downloadCount} 张图片`);
+            return;
+        }
+        
+        const linkData = downloadLinks[idx];
+        if (linkData) {
+            try {
+                const a = linkData.a;
+                document.body.appendChild(a);
                 
                 // 触发下载
                 a.click();
@@ -638,25 +647,18 @@ function individualDownloadImages(imagesToDownload) {
                 document.body.removeChild(a);
                 
                 downloadCount++;
-                console.log(`已下载 ${downloadCount} 张图片`);
                 
-                // 继续下载下一张
+                // 继续下载下一张，使用更短的延迟
                 setTimeout(() => {
                     downloadNext(idx + 1);
-                }, 100);
+                }, DOWNLOAD_DELAY);
             } catch (error) {
                 console.error('下载图片失败:', error);
                 // 继续下载下一张
                 setTimeout(() => {
                     downloadNext(idx + 1);
-                }, 100);
+                }, DOWNLOAD_DELAY);
             }
-        } else {
-            console.error('压缩结果不存在');
-            // 继续下载下一张
-            setTimeout(() => {
-                downloadNext(idx + 1);
-            }, 100);
         }
     };
     
