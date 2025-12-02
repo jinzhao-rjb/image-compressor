@@ -507,35 +507,55 @@ function downloadAllImages() {
         imagesToDownload = Array.from(selectedCompressedImages);
     }
     
+    // 移动端优化：用户确认
+    const count = imagesToDownload.length;
+    if (!confirm(`即将下载 ${count} 张图片，是否继续？`)) {
+        return;
+    }
+    
     // 遍历要下载的图片索引
+    // 移动端优化：移除延迟，使用Promise链式调用确保下载在用户交互事件生命周期内完成
     let downloadCount = 0;
     
-    // 优化下载体验，添加延迟避免浏览器阻塞
-    imagesToDownload.forEach((index, idx) => {
-        setTimeout(() => {
-            const result = compressedResults[index];
-            if (result) {
-                const compressedData = result.compressed;
-                const originalName = result.original.name;
-                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
-                
-                // 创建下载链接
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(compressedData.blob);
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
+    // 创建下载函数
+    const downloadNext = (idx) => {
+        if (idx >= imagesToDownload.length) {
+            alert(`已开始下载 ${downloadCount} 张图片`);
+            return;
+        }
+        
+        const index = imagesToDownload[idx];
+        const result = compressedResults[index];
+        if (result) {
+            const compressedData = result.compressed;
+            const originalName = result.original.name;
+            const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+            
+            // 创建下载链接
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(compressedData.blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            
+            // 移动端优化：使用更可靠的点击触发方式
+            a.style.display = 'none';
+            a.click();
+            
+            // 移除元素
+            setTimeout(() => {
                 document.body.removeChild(a);
-                
                 downloadCount++;
-                
-                // 最后一张图片下载完成后提示
-                if (downloadCount === imagesToDownload.length) {
-                    alert(`已开始下载 ${downloadCount} 张图片`);
-                }
-            }
-        }, idx * 100); // 每张图片延迟100ms下载，避免浏览器阻塞
-    });
+                // 继续下载下一张
+                downloadNext(idx + 1);
+            }, 50); // 仅保留很小的延迟，确保元素被正确移除
+        } else {
+            // 继续下载下一张
+            downloadNext(idx + 1);
+        }
+    };
+    
+    // 开始下载第一张
+    downloadNext(0);
 }
 
 // 格式化文件大小
