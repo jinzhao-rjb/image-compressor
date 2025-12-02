@@ -32,44 +32,63 @@ function initEventListeners() {
     const qualitySlider = document.getElementById('quality');
     const qualityValue = document.getElementById('quality-value');
     compressBtn = document.getElementById('compress-btn');
-    const selectAllBtn = document.getElementById('select-all');
-    const deselectAllBtn = document.getElementById('deselect-all');
-    const deleteSelectedBtn = document.getElementById('delete-selected');
-    const downloadAllBtnElem = document.getElementById('download-all');
     const uploadBtn = document.getElementById('upload-btn');
 
     // 拖拽上传事件
-    uploadArea.addEventListener('dragover', handleDragOver);
-    uploadArea.addEventListener('dragleave', handleDragLeave);
-    uploadArea.addEventListener('drop', handleDrop);
+    if (uploadArea) {
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+        uploadArea.addEventListener('drop', handleDrop);
+    }
 
     // 点击上传事件
-    fileInput.addEventListener('change', handleFileSelect);
-    uploadArea.addEventListener('click', function() {
-        fileInput.click();
-    });
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function() {
+            if (fileInput) {
+                fileInput.click();
+            }
+        });
+    }
 
     // 顶部上传按钮事件
-    uploadBtn.addEventListener('click', function() {
-        fileInput.click();
-    });
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', function() {
+            if (fileInput) {
+                fileInput.click();
+            }
+        });
+    }
 
     // 压缩质量调整事件
-    qualitySlider.addEventListener('input', function() {
-        const value = parseFloat(this.value);
-        qualityValue.textContent = Math.round(value * 100) + '%';
-    });
+    if (qualitySlider && qualityValue) {
+        qualitySlider.addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            qualityValue.textContent = Math.round(value * 100) + '%';
+        });
+    }
 
     // 压缩按钮事件
-    compressBtn.addEventListener('click', compressImages);
+    if (compressBtn) {
+        compressBtn.addEventListener('click', compressImages);
+    }
 
-    // 全选/取消全选事件
-    selectAllBtn.addEventListener('click', selectAllImages);
-    deselectAllBtn.addEventListener('click', deselectAllImages);
-    deleteSelectedBtn.addEventListener('click', deleteSelectedImages);
-
-    // 下载全部事件
-    downloadAllBtnElem.addEventListener('click', downloadAllImages);
+    // 压缩结果区域的事件监听
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const selectNoneBtn = document.getElementById('selectNoneBtn');
+    const downloadAllBtnElem = document.getElementById('downloadAllBtn');
+    
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', selectAllCompressedImages);
+    }
+    if (selectNoneBtn) {
+        selectNoneBtn.addEventListener('click', deselectAllCompressedImages);
+    }
+    if (downloadAllBtnElem) {
+        downloadAllBtnElem.addEventListener('click', downloadAllImages);
+    }
 }
 
 // 拖拽事件处理
