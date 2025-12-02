@@ -105,8 +105,11 @@ function processFiles(files) {
                     name: file.name,
                     size: file.size
                 };
+                const index = uploadedImages.length;
                 uploadedImages.push(imageData);
-                renderImagePreview(imageData, uploadedImages.length - 1);
+                // 默认选择新上传的图片
+                selectedImages.add(index);
+                renderImagePreview(imageData, index);
             };
             reader.readAsDataURL(file);
         }
@@ -117,14 +120,14 @@ function processFiles(files) {
 function renderImagePreview(imageData, index) {
     const previewContainer = document.getElementById('preview-container');
     const imageItem = document.createElement('div');
-    imageItem.className = 'image-item bg-gray-100 rounded-lg p-2';
+    imageItem.className = `image-item bg-gray-100 rounded-lg p-2 ${selectedImages.has(index) ? 'selected' : ''}`;
     imageItem.dataset.index = index;
     
     imageItem.innerHTML = `
         <div class="relative">
             <img src="${imageData.src}" alt="${imageData.name}" class="image-preview w-full rounded">
             <div class="absolute top-1 right-1 bg-white rounded-full p-1">
-                <input type="checkbox" class="image-checkbox" data-index="${index}">
+                <input type="checkbox" class="image-checkbox" data-index="${index}" style="width: 20px; height: 20px; cursor: pointer;" ${selectedImages.has(index) ? 'checked' : ''}>
             </div>
         </div>
         <div class="mt-2 text-xs text-gray-600 truncate">${imageData.name}</div>
