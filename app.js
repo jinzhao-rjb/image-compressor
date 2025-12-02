@@ -507,13 +507,93 @@ function downloadAllImages() {
         imagesToDownload = Array.from(selectedCompressedImages);
     }
     
-    // 移动端优化：用户确认
     const count = imagesToDownload.length;
-    if (!confirm(`即将下载 ${count} 张图片，是否继续？`)) {
+    
+    // 询问用户是否要打包下载
+    const useZip = confirm(`检测到 ${count} 张图片，是否要打包成zip文件一次性下载？\n\n确定：打包成zip文件下载\n取消：逐个下载`);
+    
+    if (useZip) {
+        // 使用JSZip打包下载
+        zipDownloadImages(imagesToDownload);
+    } else {
+        // 逐个下载
+        individualDownloadImages(imagesToDownload);
+    }
+}
+
+// 打包成zip文件下载
+function zipDownloadImages(imagesToDownload) {
+    const count = imagesToDownload.length;
+    alert(`正在打包 ${count} 张图片，请稍候...`);
+    
+    // 创建JSZip实例
+    const zip = new JSZip();
+    const imageFolder = zip.folder("compressed_images");
+    
+    // 存储所有的Promise
+    const promises = [];
+    
+    imagesToDownload.forEach((index) => {
+        const result = compressedResults[index];
+        if (result) {
+            const promise = new Promise((resolve) => {
+                const compressedData = result.compressed;
+                const originalFile = result.original.file;
+                const originalName = originalFile.name;
+                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+                
+                // 将Blob转换为ArrayBuffer，JSZip需要ArrayBuffer
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    // 将图片添加到zip文件夹
+                    imageFolder.file(filename, e.target.result);
+                    resolve();
+                };
+                reader.readAsArrayBuffer(compressedData.blob);
+            });
+            
+            promises.push(promise);
+        }
+    });
+    
+    // 等待所有图片处理完成
+    Promise.all(promises)
+        .then(() => {
+            // 生成zip文件
+            return zip.generateAsync({ type: "blob" });
+        })
+        .then((zipBlob) => {
+            // 创建下载链接
+            const a = document.createElement('a');
+            const blobUrl = URL.createObjectURL(zipBlob);
+            a.href = blobUrl;
+            a.download = `compressed_images_${new Date().getTime()}.zip`;
+            document.body.appendChild(a);
+            
+            // 触发下载
+            a.click();
+            
+            // 清理资源
+            document.body.removeChild(a);
+            setTimeout(() => {
+                URL.revokeObjectURL(blobUrl);
+            }, 100);
+            
+            alert(`已生成zip文件，开始下载 ${count} 张图片`);
+        })
+        .catch((error) => {
+            console.error('生成zip文件失败:', error);
+            alert('生成zip文件失败，请重试或选择逐个下载');
+        });
+}
+
+// 逐个下载图片
+function individualDownloadImages(imagesToDownload) {
+    const count = imagesToDownload.length;
+    if (!confirm(`即将逐个下载 ${count} 张图片，是否继续？`)) {
         return;
     }
     
-    // 遍历要下载的图片索引
     let downloadCount = 0;
     
     // 创建下载函数
@@ -529,7 +609,6 @@ function downloadAllImages() {
         if (result) {
             try {
                 const compressedData = result.compressed;
-                // 修复：确保正确访问原始文件名
                 const originalFile = result.original.file;
                 const originalName = originalFile.name;
                 const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
@@ -543,12 +622,10 @@ function downloadAllImages() {
                 a.download = filename;
                 document.body.appendChild(a);
                 
-                // 移动端优化：使用更可靠的点击触发方式
                 a.style.display = 'none';
                 
                 // 添加click事件监听，确保下载完成后清理资源
                 a.addEventListener('click', () => {
-                    // 延迟清理URL对象，确保下载完成
                     setTimeout(() => {
                         URL.revokeObjectURL(blobUrl);
                     }, 100);
@@ -563,10 +640,10 @@ function downloadAllImages() {
                 downloadCount++;
                 console.log(`已下载 ${downloadCount} 张图片`);
                 
-                // 继续下载下一张，使用setTimeout确保在浏览器事件循环中执行
+                // 继续下载下一张
                 setTimeout(() => {
                     downloadNext(idx + 1);
-                }, 100); // 添加适当延迟，避免浏览器阻塞
+                }, 100);
             } catch (error) {
                 console.error('下载图片失败:', error);
                 // 继续下载下一张
