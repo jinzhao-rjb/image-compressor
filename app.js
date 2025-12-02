@@ -6,10 +6,22 @@ let selectedImages = new Set(); // 存储选中的图片索引
 let compressBtn; // 压缩按钮全局变量
 
 // 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化事件监听
-    initEventListeners();
-});
+ document.addEventListener('DOMContentLoaded', function() {
+     // 初始化事件监听
+     initEventListeners();
+     // 初始化月份筛选
+     initMonthFilter();
+ });
+
+// 初始化月份筛选
+function initMonthFilter() {
+    const monthFilter = document.getElementById('month-filter');
+    if (monthFilter) {
+        monthFilter.addEventListener('change', function() {
+            renderAllPreviews();
+        });
+    }
+}
 
 // 初始化事件监听
 function initEventListeners() {
@@ -23,7 +35,6 @@ function initEventListeners() {
     const deleteSelectedBtn = document.getElementById('delete-selected');
     const downloadAllBtnElem = document.getElementById('download-all');
     const uploadBtn = document.getElementById('upload-btn');
-    const monthFilter = document.getElementById('month-filter');
 
     // 拖拽上传事件
     uploadArea.addEventListener('dragover', handleDragOver);
@@ -57,50 +68,6 @@ function initEventListeners() {
 
     // 下载全部事件
     downloadAllBtnElem.addEventListener('click', downloadAllImages);
-    
-    // 月份筛选事件
-    monthFilter.addEventListener('change', function() {
-        renderFilteredImages();
-    });
-}
-
-// 更新月份筛选下拉框
-function updateMonthFilter() {
-    const monthFilter = document.getElementById('month-filter');
-    const months = new Set();
-    
-    // 获取所有图片的月份
-    uploadedImages.forEach(image => {
-        months.add(image.month);
-    });
-    
-    // 清空现有选项（保留"全部月份"）
-    monthFilter.innerHTML = '<option value="all">全部月份</option>';
-    
-    // 添加月份选项（按降序排列）
-    Array.from(months).sort().reverse().forEach(month => {
-        const option = document.createElement('option');
-        option.value = month;
-        option.textContent = month;
-        monthFilter.appendChild(option);
-    });
-}
-
-// 渲染筛选后的图片
-function renderFilteredImages() {
-    const previewContainer = document.getElementById('preview-container');
-    const monthFilter = document.getElementById('month-filter');
-    const selectedMonth = monthFilter.value;
-    
-    // 清空预览容器
-    previewContainer.innerHTML = '';
-    
-    // 渲染符合条件的图片
-    uploadedImages.forEach((image, index) => {
-        if (selectedMonth === 'all' || image.month === selectedMonth) {
-            renderImagePreview(image, index);
-        }
-    });
 }
 
 // 拖拽事件处理
@@ -144,30 +111,62 @@ function processFiles(files) {
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = function(e) {
-                // 获取文件最后修改时间
-                const lastModified = new Date(file.lastModified);
-                // 提取月份信息（格式：YYYY-MM）
-                const month = lastModified.getFullYear() + '-' + String(lastModified.getMonth() + 1).padStart(2, '0');
+                // 获取文件的修改日期或当前日期作为月份依据
+                const fileDate = file.lastModifiedDate || new Date();
+                const month = fileDate.getMonth() + 1; // 月份从1开始
+                const year = fileDate.getFullYear();
                 
                 const imageData = {
                     file: file,
                     src: e.target.result,
                     name: file.name,
                     size: file.size,
-                    lastModified: lastModified,
-                    month: month
+                    month: month,
+                    year: year
                 };
                 const index = uploadedImages.length;
                 uploadedImages.push(imageData);
                 // 默认选择新上传的图片
                 selectedImages.add(index);
-                // 更新月份筛选器并重新渲染
-                updateMonthFilter();
-                renderFilteredImages();
+                renderImagePreview(imageData, index);
+                
+                // 更新月份筛选选项
+                updateMonthFilterOptions();
             };
             reader.readAsDataURL(file);
         }
     }
+}
+
+// 更新月份筛选选项
+function updateMonthFilterOptions() {
+    const monthFilter = document.getElementById('month-filter');
+    if (!monthFilter) return;
+    
+    // 获取所有唯一的年月组合
+    const uniqueMonths = new Set();
+    uploadedImages.forEach(imageData => {
+        uniqueMonths.add(`${imageData.year}-${imageData.month}`);
+    });
+    
+    // 保存当前选中的值
+    const currentValue = monthFilter.value;
+    
+    // 清空现有选项，保留"全部月份"
+    monthFilter.innerHTML = '<option value="all">全部月份</option>';
+    
+    // 添加唯一的年月选项
+    const monthsArray = Array.from(uniqueMonths).sort().reverse();
+    monthsArray.forEach(monthStr => {
+        const [year, month] = monthStr.split('-');
+        const option = document.createElement('option');
+        option.value = monthStr;
+        option.textContent = `${year}年${month}月`;
+        monthFilter.appendChild(option);
+    });
+    
+    // 恢复之前的选中值或默认选中"全部月份"
+    monthFilter.value = currentValue || 'all';
 }
 
 // 渲染图片预览
@@ -177,6 +176,9 @@ function renderImagePreview(imageData, index) {
     imageItem.className = `image-item bg-gray-100 rounded-lg p-2 ${selectedImages.has(index) ? 'selected' : ''}`;
     imageItem.dataset.index = index;
     
+    // 添加月份显示
+    const monthDisplay = imageData.month ? `<div class="text-xs text-gray-400">${imageData.year}年${imageData.month}月</div>` : '';
+    
     imageItem.innerHTML = `
         <div class="relative">
             <img src="${imageData.src}" alt="${imageData.name}" class="image-preview w-full rounded">
@@ -185,6 +187,7 @@ function renderImagePreview(imageData, index) {
             </div>
         </div>
         <div class="mt-2 text-xs text-gray-600 truncate">${imageData.name}</div>
+        ${monthDisplay}
         <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>
     `;
     
@@ -222,15 +225,13 @@ function toggleImageSelection(index) {
 // 全选图片
 function selectAllImages() {
     selectedImages.clear();
-    const monthFilter = document.getElementById('month-filter');
-    const selectedMonth = monthFilter.value;
-    
-    uploadedImages.forEach((image, index) => {
-        if (selectedMonth === 'all' || image.month === selectedMonth) {
-            selectedImages.add(index);
-        }
+    const imageItems = document.querySelectorAll('.image-item');
+    imageItems.forEach((item, index) => {
+        selectedImages.add(index);
+        item.classList.add('selected');
+        const checkbox = item.querySelector('.image-checkbox');
+        checkbox.checked = true;
     });
-    renderFilteredImages();
 }
 
 // 取消全选图片
@@ -264,9 +265,19 @@ function deleteSelectedImages() {
 
 // 重新渲染所有预览
 function renderAllPreviews() {
-    // 更新月份筛选器并重新渲染
-    updateMonthFilter();
-    renderFilteredImages();
+    const previewContainer = document.getElementById('preview-container');
+    previewContainer.innerHTML = '';
+    
+    // 获取当前选中的月份筛选
+    const monthFilter = document.getElementById('month-filter');
+    const selectedMonth = monthFilter ? monthFilter.value : 'all';
+    
+    uploadedImages.forEach((imageData, index) => {
+        // 检查图片是否符合当前月份筛选条件
+        if (selectedMonth === 'all' || `${imageData.year}-${imageData.month}` === selectedMonth) {
+            renderImagePreview(imageData, index);
+        }
+    });
 }
 
 // 压缩图片
