@@ -7,10 +7,6 @@
     <title>图片压缩工具</title>
     <!-- 引入Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入Element Plus -->
-    <link rel="stylesheet" href="https://unpkg.com/element-plus@2.3.8/dist/index.css">
-    <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/element-plus@2.3.8/dist/index.full.js"></script>
     <style>
         /* 自定义样式 */
         body {
@@ -45,16 +41,20 @@
         .image-item.selected {
             border: 3px solid #4285F4;
         }
-        /* 响应式调整 */
-        @media (max-width: 1280px) {
-            .desktop-only {
-                display: none;
-            }
+        /* 加载动画 */
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
         }
-        @media (max-width: 768px) {
-            .tablet-only {
-                display: none;
-            }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>

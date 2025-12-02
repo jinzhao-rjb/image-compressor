@@ -35,6 +35,7 @@ function initEventListeners() {
     const deleteSelectedBtn = document.getElementById('delete-selected');
     const downloadAllBtnElem = document.getElementById('download-all');
     const uploadBtn = document.getElementById('upload-btn');
+    const previewContainer = document.getElementById('preview-container');
 
     // 拖拽上传事件
     uploadArea.addEventListener('dragover', handleDragOver);
@@ -68,6 +69,23 @@ function initEventListeners() {
 
     // 下载全部事件
     downloadAllBtnElem.addEventListener('click', downloadAllImages);
+    
+    // 使用事件委托优化图片点击和复选框事件
+    previewContainer.addEventListener('click', function(e) {
+        const imageItem = e.target.closest('.image-item');
+        if (imageItem) {
+            const index = parseInt(imageItem.dataset.index);
+            toggleImageSelection(index);
+        }
+    });
+    
+    previewContainer.addEventListener('click', function(e) {
+        if (e.target.classList.contains('image-checkbox')) {
+            e.stopPropagation();
+            const index = parseInt(e.target.dataset.index);
+            toggleImageSelection(index);
+        }
+    });
 }
 
 // 拖拽事件处理
@@ -106,11 +124,14 @@ function handleFileSelect(e) {
 
 // 处理上传的文件
 function processFiles(files) {
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
+    // 使用requestAnimationFrame优化大量图片上传时的UI响应
+    requestAnimationFrame(() => {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type.startsWith('image/')) {
+                // 使用URL.createObjectURL替代FileReader，性能更优
+                const imageUrl = URL.createObjectURL(file);
+                
                 // 获取文件的修改日期或当前日期作为月份依据
                 const fileDate = file.lastModifiedDate || new Date();
                 const month = fileDate.getMonth() + 1; // 月份从1开始
@@ -118,24 +139,24 @@ function processFiles(files) {
                 
                 const imageData = {
                     file: file,
-                    src: e.target.result,
+                    src: imageUrl,
                     name: file.name,
                     size: file.size,
                     month: month,
-                    year: year
+                    year: year,
+                    objectUrl: imageUrl // 保存objectUrl以便后续释放
                 };
                 const index = uploadedImages.length;
                 uploadedImages.push(imageData);
                 // 默认选择新上传的图片
                 selectedImages.add(index);
                 renderImagePreview(imageData, index);
-                
-                // 更新月份筛选选项
-                updateMonthFilterOptions();
-            };
-            reader.readAsDataURL(file);
+            }
         }
-    }
+        
+        // 所有图片处理完成后更新月份筛选选项，减少DOM操作
+        updateMonthFilterOptions();
+    });
 }
 
 // 更新月份筛选选项
@@ -191,18 +212,6 @@ function renderImagePreview(imageData, index) {
         <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>
     `;
     
-    // 添加点击事件
-    imageItem.addEventListener('click', function() {
-        toggleImageSelection(index);
-    });
-    
-    // 添加复选框事件
-    const checkbox = imageItem.querySelector('.image-checkbox');
-    checkbox.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleImageSelection(index);
-    });
-    
     previewContainer.appendChild(imageItem);
 }
 
@@ -252,9 +261,13 @@ function deleteSelectedImages() {
         return;
     }
     
-    // 按索引降序删除，避免索引混乱
+    // 释放要删除图片的objectURL
     const sortedIndices = Array.from(selectedImages).sort((a, b) => b - a);
     sortedIndices.forEach(index => {
+        const imageData = uploadedImages[index];
+        if (imageData.objectUrl) {
+            URL.revokeObjectURL(imageData.objectUrl);
+        }
         uploadedImages.splice(index, 1);
         selectedImages.delete(index);
     });
@@ -266,18 +279,57 @@ function deleteSelectedImages() {
 // 重新渲染所有预览
 function renderAllPreviews() {
     const previewContainer = document.getElementById('preview-container');
+    
+    // 释放之前创建的objectURL，避免内存泄漏
+    uploadedImages.forEach(imageData => {
+        if (imageData.objectUrl) {
+            URL.revokeObjectURL(imageData.objectUrl);
+        }
+    });
+    
     previewContainer.innerHTML = '';
     
     // 获取当前选中的月份筛选
     const monthFilter = document.getElementById('month-filter');
     const selectedMonth = monthFilter ? monthFilter.value : 'all';
     
+    // 使用文档片段减少DOM操作次数
+    const fragment = document.createDocumentFragment();
+    
     uploadedImages.forEach((imageData, index) => {
         // 检查图片是否符合当前月份筛选条件
         if (selectedMonth === 'all' || `${imageData.year}-${imageData.month}` === selectedMonth) {
-            renderImagePreview(imageData, index);
+            const imageItem = createImageItem(imageData, index);
+            fragment.appendChild(imageItem);
         }
     });
+    
+    // 一次性将所有图片项添加到DOM中
+    previewContainer.appendChild(fragment);
+}
+
+// 创建图片项元素（复用逻辑，减少代码重复）
+function createImageItem(imageData, index) {
+    const imageItem = document.createElement('div');
+    imageItem.className = `image-item bg-gray-100 rounded-lg p-2 ${selectedImages.has(index) ? 'selected' : ''}`;
+    imageItem.dataset.index = index;
+    
+    // 添加月份显示
+    const monthDisplay = imageData.month ? `<div class="text-xs text-gray-400">${imageData.year}年${imageData.month}月</div>` : '';
+    
+    imageItem.innerHTML = `
+        <div class="relative">
+            <img src="${imageData.src}" alt="${imageData.name}" class="image-preview w-full rounded">
+            <div class="absolute top-1 right-1 bg-white rounded-full p-1">
+                <input type="checkbox" class="image-checkbox" data-index="${index}" style="width: 20px; height: 20px; cursor: pointer;" ${selectedImages.has(index) ? 'checked' : ''}>
+            </div>
+        </div>
+        <div class="mt-2 text-xs text-gray-600 truncate">${imageData.name}</div>
+        ${monthDisplay}
+        <div class="text-xs text-gray-500">${formatFileSize(imageData.size)}</div>
+    `;
+    
+    return imageItem;
 }
 
 // 压缩图片
@@ -295,8 +347,10 @@ function compressImages() {
     compressBtn.innerHTML = '<span class="loading">压缩中...</span>';
     compressBtn.disabled = true;
     
-    // 压缩所有图片
-    const compressPromises = uploadedImages.map(async (imageData, index) => {
+    // 只压缩选中的图片，减少不必要的处理
+    const selectedIndices = Array.from(selectedImages);
+    const compressPromises = selectedIndices.map(async (index) => {
+        const imageData = uploadedImages[index];
         return compressImage(imageData, quality, format, index);
     });
     
