@@ -448,8 +448,38 @@ function downloadImage(button, url, filename) {
 
 // 下载全部图片
 function downloadAllImages() {
-    // 这里可以实现批量下载功能
-    alert('批量下载功能开发中...');
+    // 检查是否有选中的图片
+    if (selectedImages.size === 0) {
+        alert('请先选择要下载的图片');
+        return;
+    }
+    
+    // 遍历选中的图片索引
+    let downloadCount = 0;
+    const selectedIndexes = Array.from(selectedImages);
+    
+    // 优化下载体验，添加延迟避免浏览器阻塞
+    selectedIndexes.forEach((index, idx) => {
+        setTimeout(() => {
+            const imageData = uploadedImages[index];
+            if (imageData) {
+                // 创建下载链接
+                const a = document.createElement('a');
+                a.href = imageData.src;
+                a.download = imageData.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                downloadCount++;
+                
+                // 最后一张图片下载完成后提示
+                if (downloadCount === selectedIndexes.length) {
+                    alert(`已开始下载 ${downloadCount} 张图片`);
+                }
+            }
+        }, idx * 100); // 每张图片延迟100ms下载，避免浏览器阻塞
+    });
 }
 
 // 格式化文件大小
