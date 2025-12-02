@@ -187,34 +187,36 @@ function handleFileSelect(e) {
 // 处理上传的文件
 function processFiles(files) {
     for (var i = 0; i < files.length; i++) {
-        var file = files[i];
-        if (file.type.startsWith('image/')) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                // 获取文件的修改日期或当前日期作为月份依据
-                var fileDate = file.lastModifiedDate || new Date();
-                var month = fileDate.getMonth() + 1; // 月份从1开始
-                var year = fileDate.getFullYear();
-                
-                var imageData = {
-                    file: file,
-                    src: e.target.result,
-                    name: file.name,
-                    size: file.size,
-                    month: month,
-                    year: year
+        (function() {
+            var file = files[i];
+            if (file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    // 获取文件的修改日期或当前日期作为月份依据
+                    var fileDate = file.lastModifiedDate || new Date();
+                    var month = fileDate.getMonth() + 1; // 月份从1开始
+                    var year = fileDate.getFullYear();
+                    
+                    var imageData = {
+                        file: file,
+                        src: e.target.result,
+                        name: file.name,
+                        size: file.size,
+                        month: month,
+                        year: year
+                    };
+                    var index = uploadedImages.length;
+                    uploadedImages.push(imageData);
+                    // 默认选择新上传的图片
+                    selectedImages.add(index);
+                    renderImagePreview(imageData, index);
+                    
+                    // 更新月份筛选选项
+                    updateMonthFilterOptions();
                 };
-                var index = uploadedImages.length;
-                uploadedImages.push(imageData);
-                // 默认选择新上传的图片
-                selectedImages.add(index);
-                renderImagePreview(imageData, index);
-                
-                // 更新月份筛选选项
-                updateMonthFilterOptions();
-            };
-            reader.readAsDataURL(file);
-        }
+                reader.readAsDataURL(file);
+            }
+        })();
     }
 }
 
