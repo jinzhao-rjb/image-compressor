@@ -7,6 +7,7 @@ const qualitySlider = document.getElementById('quality');
 const qualityValue = document.getElementById('qualityValue');
 const formatSelect = document.getElementById('format');
 const replaceOriginalCheckbox = document.getElementById('replaceOriginal');
+const losslessCompressionCheckbox = document.getElementById('losslessCompression');
 const compressBtn = document.getElementById('compressBtn');
 const previewGrid = document.getElementById('previewGrid');
 const resultsSection = document.getElementById('resultsSection');
@@ -291,8 +292,27 @@ async function compressSingleImage(image, retryCount = 0) {
                     mimeType = `image/${outputFormat}`;
                 }
                 
-                // 压缩质量
-                const quality = parseInt(qualitySlider.value) / 100;
+                // 压缩质量设置
+                let quality = parseInt(qualitySlider.value) / 100;
+                let lossless = false;
+                
+                // 如果选中无损压缩选项
+                if (losslessCompressionCheckbox.checked) {
+                    // 对于JPG，最高质量就是无损（虽然JPG本身是有损格式）
+                    // 对于PNG和WebP，使用无损压缩选项
+                    quality = 1; // 最高质量
+                    lossless = true; // 无损压缩标志
+                }
+                
+                // Canvas toBlob 选项
+                const toBlobOptions = {
+                    quality: quality
+                };
+                
+                // WebP格式支持无损压缩选项
+                if (mimeType === 'image/webp') {
+                    toBlobOptions.lossless = lossless;
+                }
                 
                 // 转换为 Blob
                 canvas.toBlob(async (blob) => {
@@ -318,15 +338,22 @@ async function compressSingleImage(image, retryCount = 0) {
                         outputName = `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`;
                     }
                     
-                    // 智能判断：如果压缩后大小增大，使用原图
+                    // 智能判断：根据压缩设置决定是否使用原图
                     let finalBlob = blob;
                     let finalSize = blob.size;
                     let finalUrl = URL.createObjectURL(blob);
                     let finalMimeType = mimeType;
                     let finalName = outputName;
                     
-                    // 如果压缩后变大，使用原图
-                    if (blob.size >= image.size) {
+                    // 比较压缩前后大小，决定是否使用原图
+                    // 1. 如果选中无损压缩，优先保持画质，仅当压缩后文件大小显著增大时才使用原图
+                    // 2. 否则，当压缩后大小大于等于原图时使用原图
+                    const sizeIncreaseThreshold = 0.1; // 10% 大小增加阈值
+                    const useOriginal = losslessCompressionCheckbox.checked 
+                        ? (blob.size > image.size * (1 + sizeIncreaseThreshold))
+                        : (blob.size >= image.size);
+                    
+                    if (useOriginal) {
                         finalBlob = image.file;
                         finalSize = image.size;
                         finalUrl = URL.createObjectURL(image.file);
