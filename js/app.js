@@ -299,7 +299,7 @@ async function compressSingleImage(image, retryCount = 0) {
                 // 如果选中无损压缩选项
                 if (losslessCompressionCheckbox.checked) {
                     // 对于JPG，最高质量就是无损（虽然JPG本身是有损格式）
-                    // 对于PNG和WebP，使用无损压缩选项
+                    // 对于PNG和WebP，使用真正的无损压缩
                     quality = 1; // 最高质量
                     lossless = true; // 无损压缩标志
                 }
@@ -309,9 +309,14 @@ async function compressSingleImage(image, retryCount = 0) {
                     quality: quality
                 };
                 
-                // WebP格式支持无损压缩选项
-                if (mimeType === 'image/webp') {
+                // 为支持无损压缩的格式设置无损选项
+                if (mimeType === 'image/webp' || mimeType === 'image/png') {
                     toBlobOptions.lossless = lossless;
+                }
+                
+                // 对于PNG格式，还可以设置压缩级别（0-9，9为最高压缩率）
+                if (mimeType === 'image/png') {
+                    toBlobOptions.compressionLevel = 9; // 最高压缩率
                 }
                 
                 // 转换为 Blob
@@ -338,27 +343,37 @@ async function compressSingleImage(image, retryCount = 0) {
                         outputName = `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`;
                     }
                     
-                    // 智能判断：根据压缩设置决定是否使用原图
+                    // 智能判断：根据压缩设置决定最终结果
                     let finalBlob = blob;
                     let finalSize = blob.size;
                     let finalUrl = URL.createObjectURL(blob);
                     let finalMimeType = mimeType;
                     let finalName = outputName;
                     
-                    // 比较压缩前后大小，决定是否使用原图
-                    // 1. 如果选中无损压缩，优先保持画质，仅当压缩后文件大小显著增大时才使用原图
-                    // 2. 否则，当压缩后大小大于等于原图时使用原图
-                    const sizeIncreaseThreshold = 0.1; // 10% 大小增加阈值
-                    const useOriginal = losslessCompressionCheckbox.checked 
-                        ? (blob.size > image.size * (1 + sizeIncreaseThreshold))
-                        : (blob.size >= image.size);
-                    
-                    if (useOriginal) {
-                        finalBlob = image.file;
-                        finalSize = image.size;
-                        finalUrl = URL.createObjectURL(image.file);
-                        finalMimeType = image.type;
-                        finalName = image.name;
+                    // 无损压缩逻辑：确保压缩后画质不变，且文件大小更小或相同
+                    if (losslessCompressionCheckbox.checked) {
+                        // 对于无损压缩，我们总是希望使用压缩后的文件，除非它真的比原图大
+                        // 注意：有些格式（如PNG、WebP）的无损压缩通常会生成更小的文件
+                        // 但某些特殊情况下，压缩后可能会稍大（如已经高度压缩的文件）
+                        if (blob.size > image.size) {
+                            // 如果压缩后文件更大，使用原图
+                            // 但这并不影响无损压缩的定义，因为原图本身就是无损的
+                            finalBlob = image.file;
+                            finalSize = image.size;
+                            finalUrl = URL.createObjectURL(image.file);
+                            finalMimeType = image.type;
+                            finalName = image.name;
+                        }
+                        // 否则，使用压缩后的文件（画质不变，文件更小）
+                    } else {
+                        // 普通压缩：当压缩后大小大于等于原图时使用原图
+                        if (blob.size >= image.size) {
+                            finalBlob = image.file;
+                            finalSize = image.size;
+                            finalUrl = URL.createObjectURL(image.file);
+                            finalMimeType = image.type;
+                            finalName = image.name;
+                        }
                     }
                     
                     const compressedImage = {
