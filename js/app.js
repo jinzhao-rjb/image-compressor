@@ -1,25 +1,25 @@
 // 图片压缩工具 JavaScript - 支持移动端上传200张图片
 
 // DOM 元素
-const uploadArea = document.getElementById('uploadArea');
-const fileInput = document.getElementById('fileInput');
-const qualitySlider = document.getElementById('quality');
-const qualityValue = document.getElementById('qualityValue');
-const formatSelect = document.getElementById('format');
-const replaceOriginalCheckbox = document.getElementById('replaceOriginal');
-const losslessCompressionCheckbox = document.getElementById('losslessCompression');
-const compressBtn = document.getElementById('compressBtn');
-const previewGrid = document.getElementById('previewGrid');
-const resultsSection = document.getElementById('resultsSection');
-const resultsGrid = document.getElementById('resultsGrid');
-const totalStats = document.getElementById('totalStats');
-const downloadAllBtn = document.getElementById('downloadAllBtn');
-const selectedCountEl = document.getElementById('selectedCount');
-const totalSizeEl = document.getElementById('totalSize');
-const compressionProgressEl = document.getElementById('compressionProgress');
+var uploadArea = document.getElementById('uploadArea');
+var fileInput = document.getElementById('fileInput');
+var qualitySlider = document.getElementById('quality');
+var qualityValue = document.getElementById('qualityValue');
+var formatSelect = document.getElementById('format');
+var replaceOriginalCheckbox = document.getElementById('replaceOriginal');
+var losslessCompressionCheckbox = document.getElementById('losslessCompression');
+var compressBtn = document.getElementById('compressBtn');
+var previewGrid = document.getElementById('previewGrid');
+var resultsSection = document.getElementById('resultsSection');
+var resultsGrid = document.getElementById('resultsGrid');
+var totalStats = document.getElementById('totalStats');
+var downloadAllBtn = document.getElementById('downloadAllBtn');
+var selectedCountEl = document.getElementById('selectedCount');
+var totalSizeEl = document.getElementById('totalSize');
+var compressionProgressEl = document.getElementById('compressionProgress');
 
 // 配置
-const CONFIG = {
+var CONFIG = {
   maxConcurrent: 3,      // 最大并发压缩数，移动端优化
   retryTimes: 2,          // 失败重试次数
   chunkSize: 50,          // 每次处理的文件块大小
@@ -30,25 +30,25 @@ const CONFIG = {
 };
 
 // 存储数据
-let uploadedImages = [];
-let compressedImages = [];
-let compressionProgress = 0;
-let totalFiles = 0;
-let processedFiles = 0;
-let isCompressing = false;
-let totalSize = 0;
+var uploadedImages = [];
+var compressedImages = [];
+var compressionProgress = 0;
+var totalFiles = 0;
+var processedFiles = 0;
+var isCompressing = false;
+var totalSize = 0;
 
 // 格式化文件大小
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    var k = 1024;
+    var sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // 更新质量显示
-qualitySlider.addEventListener('input', () => {
+qualitySlider.addEventListener('input', function() {
     qualityValue.textContent = qualitySlider.value;
 });
 
@@ -56,7 +56,7 @@ qualitySlider.addEventListener('input', () => {
 function updateStats() {
     selectedCountEl.textContent = uploadedImages.length;
     totalSizeEl.textContent = formatFileSize(totalSize);
-    compressionProgressEl.textContent = `${compressionProgress}%`;
+    compressionProgressEl.textContent = compressionProgress + '%';
 }
 
 // 处理文件上传
@@ -72,37 +72,39 @@ function handleFileUpload(files) {
     
     // 检查文件数量
     if (files.length > CONFIG.maxImages) {
-        alert(`单次最多只能上传${CONFIG.maxImages}张图片，请减少文件数量`);
+        alert('单次最多只能上传' + CONFIG.maxImages + '张图片，请减少文件数量');
         return;
     }
     
     // 检查总文件大小
-    let currentTotalSize = 0;
-    const validFiles = [];
+    var currentTotalSize = 0;
+    var validFiles = [];
     
-    Array.from(files).forEach(file => {
+    // 使用传统for循环替代Array.from和forEach
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
         if (file.type.startsWith('image/')) {
             // 检查单个文件大小
             if (file.size > CONFIG.maxFileSize) {
-                console.warn(`跳过文件 ${file.name}: 超过最大文件大小限制 (${formatFileSize(CONFIG.maxFileSize)})`);
-                return;
+                console.warn('跳过文件 ' + file.name + ': 超过最大文件大小限制 (' + formatFileSize(CONFIG.maxFileSize) + ')');
+                continue;
             }
             
             validFiles.push(file);
             currentTotalSize += file.size;
         }
-    });
+    }
     
     // 检查总文件大小
     if (currentTotalSize > CONFIG.maxTotalSize) {
-        alert(`总文件大小超过限制 (${formatFileSize(CONFIG.maxTotalSize)})，请减少文件数量或大小`);
+        alert('总文件大小超过限制 (' + formatFileSize(CONFIG.maxTotalSize) + ')，请减少文件数量或大小');
         return;
     }
     
     totalSize = currentTotalSize;
     
     // 遍历有效文件
-    validFiles.forEach(file => {
+    for (var i = 0; i < validFiles.length; i++) { var file = validFiles[i];
         uploadedImages.push({
             file: file,
             name: file.name,
@@ -130,11 +132,11 @@ function handleFileUpload(files) {
 // 显示图片预览
 function displayPreview() {
     if (uploadedImages.length === 0) {
-        previewGrid.innerHTML = `
+        previewGrid.innerHTML = '
             <div class="empty-preview">
                 <p>上传图片后将显示预览</p>
             </div>
-        `;
+        ';
         return;
     }
     
@@ -142,22 +144,22 @@ function displayPreview() {
     previewGrid.innerHTML = '';
     
     // 只显示前N张图片预览，优化性能
-    const displayCount = Math.min(CONFIG.previewLimit, uploadedImages.length);
+    var displayCount = Math.min(CONFIG.previewLimit, uploadedImages.length);
     
-    for (let i = 0; i < displayCount; i++) {
-        const image = uploadedImages[i];
-        const reader = new FileReader();
+    for (var i = 0; i < displayCount; i++) {
+        var image = uploadedImages[i];
+        var reader = new FileReader();
         
-        reader.onload = (e) => {
-            const previewItem = document.createElement('div');
+        reader.onload = function(e) {
+            var previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
-            previewItem.innerHTML = `
+            previewItem.innerHTML = '
                 <img src="${e.target.result}" alt="${image.name}" class="preview-image">
                 <div class="preview-info">
                     <div>${image.name}</div>
                     <div>${formatFileSize(image.size)}</div>
                 </div>
-            `;
+            ';
             previewGrid.appendChild(previewItem);
         };
         
@@ -166,21 +168,21 @@ function displayPreview() {
     
     // 如果图片数量超过预览限制，显示更多提示
     if (uploadedImages.length > CONFIG.previewLimit) {
-        const moreDiv = document.createElement('div');
+        var moreDiv = document.createElement('div');
         moreDiv.className = 'preview-item';
-        moreDiv.innerHTML = `
+        moreDiv.innerHTML = '
             <div style="padding: 20px; text-align: center;">
                 <p>... 还有 ${uploadedImages.length - CONFIG.previewLimit} 张图片</p>
             </div>
-        `;
+        ';
         previewGrid.appendChild(moreDiv);
     }
     
     // 添加移除所有按钮
-    const removeAllBtn = document.createElement('button');
+    var removeAllBtn = document.createElement('button');
     removeAllBtn.className = 'remove-btn';
     removeAllBtn.textContent = '移除所有图片';
-    removeAllBtn.onclick = () => {
+    removeAllBtn.onclick = function() {
         uploadedImages = [];
         totalSize = 0;
         displayPreview();
@@ -191,7 +193,7 @@ function displayPreview() {
 }
 
 // 压缩图片
-async function compressImages() {
+function compressImages() {
     if (isCompressing || uploadedImages.length === 0) return;
     
     isCompressing = true;
@@ -209,17 +211,33 @@ async function compressImages() {
     
     try {
         // 分块处理图片，优化移动端性能
-        for (let i = 0; i < uploadedImages.length; i += CONFIG.chunkSize) {
-            const chunk = uploadedImages.slice(i, i + CONFIG.chunkSize);
-            await compressImageChunk(chunk);
+        var chunks = [];
+        for (var i = 0; i < uploadedImages.length; i += CONFIG.chunkSize) {
+            chunks.push(uploadedImages.slice(i, i + CONFIG.chunkSize));
         }
         
-        // 显示结果
-        displayResults();
+        var currentChunk = 0;
+        var processNextChunk = function() {
+            if (currentChunk >= chunks.length) {
+                // 显示结果
+                displayResults();
+                // 恢复按钮状态
+                isCompressing = false;
+                compressBtn.disabled = false;
+                compressBtn.innerHTML = '开始压缩';
+                return;
+            }
+            
+            compressImageChunk(chunks[currentChunk], function() {
+                currentChunk++;
+                processNextChunk();
+            });
+        };
+        
+        processNextChunk();
     } catch (error) {
         console.error('压缩过程中发生错误:', error);
         alert('压缩过程中发生错误，请重试');
-    } finally {
         // 恢复按钮状态
         isCompressing = false;
         compressBtn.disabled = false;
@@ -228,54 +246,72 @@ async function compressImages() {
 }
 
 // 压缩图片块（并发）
-async function compressImageChunk(imageChunk) {
-    const results = [];
-    const queue = [...imageChunk];
-    const workers = [];
+function compressImageChunk(imageChunk, callback) {
+    var results = [];
+    var queue = Array.from(imageChunk);
+    var workers = [];
+    var completedWorkers = 0;
     
     // 启动工作线程
-    for (let i = 0; i < Math.min(CONFIG.maxConcurrent, queue.length); i++) {
-        workers.push(runWorker());
+    var maxWorkers = Math.min(CONFIG.maxConcurrent, queue.length);
+    for (var i = 0; i < maxWorkers; i++) {
+        runWorker();
     }
     
     // 工作线程函数
-    async function runWorker() {
-        while (queue.length > 0) {
-            const image = queue.shift();
-            const result = await compressSingleImage(image);
+    function runWorker() {
+        if (queue.length === 0) {
+            completedWorkers++;
+            if (completedWorkers >= maxWorkers) {
+                // 添加到结果数组
+                for (var j = 0; j < results.length; j++) {
+                    compressedImages.push(results[j]);
+                }
+                callback();
+            }
+            return;
+        }
+        
+        var image = queue.shift();
+        compressSingleImage(image).then(function(result) {
             if (result) {
                 results.push(result);
             }
             processedFiles++;
             updateCompressionProgress();
-        }
+            runWorker();
+        }).catch(function(error) {
+            console.error('压缩失败:', error);
+            processedFiles++;
+            updateCompressionProgress();
+            runWorker();
+        });
     }
-    
-    // 等待所有工作线程完成
-    await Promise.all(workers);
-    
-    // 添加到结果数组
-    compressedImages.push(...results);
 }
 
 // 更新压缩进度
 function updateCompressionProgress() {
     compressionProgress = Math.round((processedFiles / totalFiles) * 100);
-    compressionProgressEl.textContent = `${compressionProgress}%`;
+    compressionProgressEl.textContent = compressionProgress + '%';
 }
 
 // 压缩单张图片，支持重试
-async function compressSingleImage(image, retryCount = 0) {
-    return new Promise((resolve) => {
-        const reader = new FileReader();
+function compressSingleImage(image, retryCount) {
+    // 设置默认重试次数
+    if (typeof retryCount === 'undefined') {
+        retryCount = 0;
+    }
+    
+    return new Promise(function(resolve) {
+        var reader = new FileReader();
         
-        reader.onload = (e) => {
-            const img = new Image();
+        reader.onload = function(e) {
+            var img = new Image();
             
-            img.onload = () => {
+            img.onload = function() {
                 // 创建 Canvas
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
+                var canvas = document.createElement('canvas');
+                var ctx = canvas.getContext('2d');
                 
                 // 设置 Canvas 尺寸
                 canvas.width = img.width;
@@ -285,16 +321,16 @@ async function compressSingleImage(image, retryCount = 0) {
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 
                 // 确定输出格式
-                let outputFormat = formatSelect.value;
-                let mimeType = image.type;
+                var outputFormat = formatSelect.value;
+                var mimeType = image.type;
                 
                 if (outputFormat !== 'original') {
-                    mimeType = `image/${outputFormat}`;
+                    mimeType = 'image/' + outputFormat;
                 }
                 
                 // 压缩质量设置
-                let quality = parseInt(qualitySlider.value) / 100;
-                let lossless = false;
+                var quality = parseInt(qualitySlider.value) / 100;
+                var lossless = false;
                 
                 // 如果选中无损压缩选项
                 if (losslessCompressionCheckbox.checked) {
@@ -305,7 +341,7 @@ async function compressSingleImage(image, retryCount = 0) {
                 }
                 
                 // Canvas toBlob 选项
-                const toBlobOptions = {
+                var toBlobOptions = {
                     quality: quality
                 };
                 
@@ -320,35 +356,35 @@ async function compressSingleImage(image, retryCount = 0) {
                 }
                 
                 // 转换为 Blob
-                canvas.toBlob(async (blob) => {
+                canvas.toBlob(function(blob) {
                     if (!blob) {
                         if (retryCount < CONFIG.retryTimes) {
-                            console.log(`重试压缩 ${image.name} (${retryCount + 1}/${CONFIG.retryTimes})...`);
-                            const result = await compressSingleImage(image, retryCount + 1);
+                            console.log('重试压缩 ' + image.name + ' (' + (retryCount + 1) + '/' + CONFIG.retryTimes + ')...');
+                            var result = compressSingleImage(image, retryCount + 1);
                             resolve(result);
                         } else {
-                            console.error(`压缩失败 ${image.name}: Canvas 转换失败`);
+                            console.error('压缩失败 ' + image.name + ': Canvas 转换失败');
                             resolve(null);
                         }
                         return;
                     }
                     
                     // 确定输出文件名
-                    let outputName;
+                    var outputName;
                     if (replaceOriginalCheckbox.checked) {
                         // 如果替换原文件，使用原文件名
                         outputName = image.name;
                     } else {
                         // 否则添加_compressed后缀
-                        outputName = `${image.name.split('.')[0]}_compressed.${outputFormat === 'original' ? image.name.split('.').pop() : outputFormat}`;
+                        outputName = image.name.split('.')[0] + '_compressed.' + (outputFormat === 'original' ? image.name.split('.').pop() : outputFormat);
                     }
                     
                     // 智能判断：根据压缩设置决定最终结果
-                    let finalBlob = blob;
-                    let finalSize = blob.size;
-                    let finalUrl = URL.createObjectURL(blob);
-                    let finalMimeType = mimeType;
-                    let finalName = outputName;
+                    var finalBlob = blob;
+                    var finalSize = blob.size;
+                    var finalUrl = URL.createObjectURL(blob);
+                    var finalMimeType = mimeType;
+                    var finalName = outputName;
                     
                     // 无损压缩逻辑：确保压缩后画质不变，且文件大小更小或相同
                     if (losslessCompressionCheckbox.checked) {
@@ -376,7 +412,7 @@ async function compressSingleImage(image, retryCount = 0) {
                         }
                     }
                     
-                    const compressedImage = {
+                    var compressedImage = {
                         original: image,
                         compressed: {
                             blob: finalBlob,
@@ -398,13 +434,13 @@ async function compressSingleImage(image, retryCount = 0) {
                 }, mimeType, quality);
             };
             
-            img.onerror = async () => {
+            img.onerror = function() {
                 if (retryCount < CONFIG.retryTimes) {
-                    console.log(`重试加载 ${image.name} (${retryCount + 1}/${CONFIG.retryTimes})...`);
-                    const result = await compressSingleImage(image, retryCount + 1);
+                    console.log('重试加载 ' + image.name + ' (' + (retryCount + 1) + '/' + CONFIG.retryTimes + ')...');
+                    var result = compressSingleImage(image, retryCount + 1);
                     resolve(result);
                 } else {
-                    console.error(`加载图片失败 ${image.name}`);
+                    console.error('加载图片失败 ' + image.name);
                     resolve(null);
                 }
             };
@@ -412,13 +448,13 @@ async function compressSingleImage(image, retryCount = 0) {
             img.src = e.target.result;
         };
         
-        reader.onerror = async () => {
+        reader.onerror = function() {
             if (retryCount < CONFIG.retryTimes) {
-                console.log(`重试读取 ${image.name} (${retryCount + 1}/${CONFIG.retryTimes})...`);
-                const result = await compressSingleImage(image, retryCount + 1);
+                console.log('重试读取 ' + image.name + ' (' + (retryCount + 1) + '/' + CONFIG.retryTimes + ')...');
+                var result = compressSingleImage(image, retryCount + 1);
                 resolve(result);
             } else {
-                console.error(`读取文件失败 ${image.name}`);
+                console.error('读取文件失败 ' + image.name);
                 resolve(null);
             }
         };
@@ -430,37 +466,37 @@ async function compressSingleImage(image, retryCount = 0) {
 // 显示压缩结果
 function displayResults() {
     if (compressedImages.length === 0) {
-        resultsGrid.innerHTML = `
+        resultsGrid.innerHTML = '
             <div class="empty-preview">
                 <p>没有成功压缩的图片</p>
             </div>
-        `;
+        ';
         return;
     }
     
     // 添加替换原文件提示
     if (replaceOriginalCheckbox.checked) {
-        const replaceHint = document.createElement('div');
+        var replaceHint = document.createElement('div');
         replaceHint.className = 'error-message';
-        replaceHint.innerHTML = `
+        replaceHint.innerHTML = '
             <p>💡 提示：由于浏览器安全限制，无法直接修改您的本地文件。</p>
             <p>请手动将下载的图片替换原文件，或使用命令行版本的 --replace 选项自动替换。</p>
-        `;
+        ';
         resultsGrid.appendChild(replaceHint);
     }
     
     // 显示每张图片的结果
-    compressedImages.forEach((result, index) => {
-        const resultItem = document.createElement('div');
+    for (var index = 0; index < compressedImages.length; index++) { var result = compressedImages[index];
+        var resultItem = document.createElement('div');
         resultItem.className = 'result-item';
         
         // 确定下载按钮文本
-        let downloadBtnText = '下载';
+        var downloadBtnText = '下载';
         if (replaceOriginalCheckbox.checked) {
             downloadBtnText = '下载（替换原文件）';
         }
         
-        resultItem.innerHTML = `
+        resultItem.innerHTML = '
             <div class="result-header">
                 <div class="result-name">${result.compressed.name}</div>
                 <a href="${result.compressed.url}" download="${result.compressed.name}" class="download-btn">${downloadBtnText}</a>
@@ -484,7 +520,7 @@ function displayResults() {
                     <span class="stat-value">${formatFileSize(result.savings)}</span>
                 </div>
             </div>
-        `;
+        ';
         resultsGrid.appendChild(resultItem);
     });
     
@@ -494,12 +530,12 @@ function displayResults() {
 
 // 显示总统计
 function displayTotalStats() {
-    const totalOriginalSize = compressedImages.reduce((sum, img) => sum + img.original.size, 0);
-    const totalCompressedSize = compressedImages.reduce((sum, img) => sum + img.compressed.size, 0);
-    const totalSavings = totalOriginalSize - totalCompressedSize;
-    const totalSavingsPercent = totalOriginalSize > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
+    var totalOriginalSize = 0; for (var i = 0; i < compressedImages.length; i++) { totalOriginalSize += compressedImages[i].original.size; }
+    var totalCompressedSize = 0; for (var i = 0; i < compressedImages.length; i++) { totalCompressedSize += compressedImages[i].compressed.size; }
+    var totalSavings = totalOriginalSize - totalCompressedSize;
+    var totalSavingsPercent = totalOriginalSize > 0 ? ((totalSavings / totalOriginalSize) * 100).toFixed(1) : 0;
     
-    totalStats.innerHTML = `
+    totalStats.innerHTML = '
         <h3>总压缩统计</h3>
         <div class="total-stats-grid">
             <div class="total-stat-item">
@@ -527,7 +563,7 @@ function displayTotalStats() {
                 <span class="total-stat-label">总压缩率</span>
             </div>
         </div>
-    `;
+    ';
 }
 
 // 下载全部图片
@@ -535,9 +571,9 @@ function downloadAllImages() {
     if (compressedImages.length === 0) return;
     
     // 优化移动端下载体验，添加延迟避免浏览器阻塞
-    compressedImages.forEach((result, index) => {
-        setTimeout(() => {
-            const a = document.createElement('a');
+    for (var index = 0; index < compressedImages.length; index++) { var result = compressedImages[index];
+        setTimeout(function() {
+            var a = document.createElement('a');
             a.href = result.compressed.url;
             a.download = result.compressed.name;
             document.body.appendChild(a);
@@ -550,12 +586,12 @@ function downloadAllImages() {
 // 清理资源
 function cleanupResources() {
     // 释放所有 URL 对象
-    compressedImages.forEach(result => {
+    for (var i = 0; i < compressedImages.length; i++) { var result = compressedImages[i];
         URL.revokeObjectURL(result.compressed.url);
     });
     
     // 释放预览 URL
-    uploadedImages.forEach(image => {
+    for (var i = 0; i < uploadedImages.length; i++) { var image = uploadedImages[i];
         if (image.previewUrl) {
             URL.revokeObjectURL(image.previewUrl);
         }
@@ -565,21 +601,21 @@ function cleanupResources() {
 // 事件监听
 
 // 文件选择
-fileInput.addEventListener('change', (e) => {
+fileInput.addEventListener('change', function(e) {
     handleFileUpload(e.target.files);
 });
 
 // 拖拽上传
-uploadArea.addEventListener('dragover', (e) => {
+uploadArea.addEventListener('dragover', function(e) {
     e.preventDefault();
     uploadArea.classList.add('dragover');
 });
 
-uploadArea.addEventListener('dragleave', () => {
+uploadArea.addEventListener('dragleave', function() {
     uploadArea.classList.remove('dragover');
 });
 
-uploadArea.addEventListener('drop', (e) => {
+uploadArea.addEventListener('drop', function(e) {
     e.preventDefault();
     uploadArea.classList.remove('dragover');
     handleFileUpload(e.dataTransfer.files);

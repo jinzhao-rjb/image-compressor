@@ -76,7 +76,7 @@ if (typeof Array.prototype.forEach === 'undefined') {
 
 // 初始化月份筛选
 function initMonthFilter() {
-    const monthFilter = document.getElementById('month-filter');
+    var monthFilter = document.getElementById('month-filter');
     if (monthFilter) {
         monthFilter.addEventListener('change', function() {
             renderAllPreviews();
@@ -86,12 +86,12 @@ function initMonthFilter() {
 
 // 初始化事件监听
 function initEventListeners() {
-    const uploadArea = document.getElementById('upload-area');
-    const fileInput = document.getElementById('file-input');
-    const qualitySlider = document.getElementById('quality');
-    const qualityValue = document.getElementById('quality-value');
+    var uploadArea = document.getElementById('upload-area');
+    var fileInput = document.getElementById('file-input');
+    var qualitySlider = document.getElementById('quality');
+    var qualityValue = document.getElementById('quality-value');
     compressBtn = document.getElementById('compress-btn');
-    const uploadBtn = document.getElementById('upload-btn');
+    var uploadBtn = document.getElementById('upload-btn');
 
     // 拖拽上传事件
     if (uploadArea) {
@@ -124,7 +124,7 @@ function initEventListeners() {
     // 压缩质量调整事件
     if (qualitySlider && qualityValue) {
         qualitySlider.addEventListener('input', function() {
-            const value = parseFloat(this.value);
+            var value = parseFloat(this.value);
             qualityValue.textContent = Math.round(value * 100) + '%';
         });
     }
@@ -135,9 +135,9 @@ function initEventListeners() {
     }
 
     // 压缩结果区域的事件监听
-    const selectAllBtn = document.getElementById('selectAllBtn');
-    const selectNoneBtn = document.getElementById('selectNoneBtn');
-    const downloadAllBtnElem = document.getElementById('downloadAllBtn');
+    var selectAllBtn = document.getElementById('selectAllBtn');
+    var selectNoneBtn = document.getElementById('selectNoneBtn');
+    var downloadAllBtnElem = document.getElementById('downloadAllBtn');
     
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', selectAllCompressedImages);
@@ -154,7 +154,7 @@ function initEventListeners() {
 function handleDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
-    const uploadArea = document.getElementById('upload-area');
+    var uploadArea = document.getElementById('upload-area');
     uploadArea.classList.add('dragover');
 }
 
@@ -171,13 +171,13 @@ function handleDrop(e) {
     const uploadArea = document.getElementById('upload-area');
     uploadArea.classList.remove('dragover');
     
-    const files = e.dataTransfer.files;
+    var files = e.dataTransfer.files;
     processFiles(files);
 }
 
 // 文件选择事件处理
 function handleFileSelect(e) {
-    const files = e.target.files;
+    var files = e.target.files;
     processFiles(files);
     
     // 清空input值，允许重复上传同一文件
@@ -186,17 +186,17 @@ function handleFileSelect(e) {
 
 // 处理上传的文件
 function processFiles(files) {
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+    for (var i = 0; i < files.length; i++) {
+        var file = files[i];
         if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
+            var reader = new FileReader();
             reader.onload = function(e) {
                 // 获取文件的修改日期或当前日期作为月份依据
-                const fileDate = file.lastModifiedDate || new Date();
-                const month = fileDate.getMonth() + 1; // 月份从1开始
-                const year = fileDate.getFullYear();
+                var fileDate = file.lastModifiedDate || new Date();
+                var month = fileDate.getMonth() + 1; // 月份从1开始
+                var year = fileDate.getFullYear();
                 
-                const imageData = {
+                var imageData = {
                     file: file,
                     src: e.target.result,
                     name: file.name,
@@ -204,7 +204,7 @@ function processFiles(files) {
                     month: month,
                     year: year
                 };
-                const index = uploadedImages.length;
+                var index = uploadedImages.length;
                 uploadedImages.push(imageData);
                 // 默认选择新上传的图片
                 selectedImages.add(index);
@@ -220,11 +220,11 @@ function processFiles(files) {
 
 // 更新月份筛选选项
 function updateMonthFilterOptions() {
-    const monthFilter = document.getElementById('month-filter');
+    var monthFilter = document.getElementById('month-filter');
     if (!monthFilter) return;
     
     // 保存当前选中的值
-    const currentValue = monthFilter.value;
+    var currentValue = monthFilter.value;
     
     // 获取所有唯一的年月组合
     var uniqueMonths = [];
@@ -275,8 +275,8 @@ function updateMonthFilterOptions() {
 
 // 渲染图片预览
 function renderImagePreview(imageData, index) {
-    const previewContainer = document.getElementById('preview-container');
-    const imageItem = document.createElement('div');
+    var previewContainer = document.getElementById('preview-container');
+    var imageItem = document.createElement('div');
     var selectedClass = selectedImages.indexOf(index) !== -1 ? 'selected' : '';
     imageItem.className = 'image-item bg-gray-100 rounded-lg p-2 ' + selectedClass;
     imageItem.dataset.index = index;
@@ -306,7 +306,7 @@ function renderImagePreview(imageData, index) {
     });
     
     // 添加复选框事件
-    const checkbox = imageItem.querySelector('.image-checkbox');
+    var checkbox = imageItem.querySelector('.image-checkbox');
     checkbox.addEventListener('click', function(e) {
         e.stopPropagation();
         toggleImageSelection(index);
@@ -382,14 +382,14 @@ function deleteSelectedImages() {
 
 // 重新渲染所有预览
 function renderAllPreviews() {
-    const previewContainer = document.getElementById('preview-container');
+    var previewContainer = document.getElementById('preview-container');
     previewContainer.innerHTML = '';
     
     // 获取当前选中的月份筛选
-    const monthFilter = document.getElementById('month-filter');
-    const selectedMonth = monthFilter ? monthFilter.value : 'all';
+    var monthFilter = document.getElementById('month-filter');
+    var selectedMonth = monthFilter ? monthFilter.value : 'all';
     
-    uploadedImages.forEach((imageData, index) => {
+    for (var index = 0; index < uploadedImages.length; index++) { var imageData = uploadedImages[index];
         // 检查图片是否符合当前月份筛选条件
        394: if (selectedMonth === 'all' || (imageData.year + '-' + imageData.month) === selectedMonth) {
             renderImagePreview(imageData, index);
@@ -441,12 +441,12 @@ function compressImages() {
 
 // 压缩单张图片
 function compressImage(imageData, quality, format, index) {
-    return new Promise((resolve) => {
-        const img = new Image();
+    return new Promise(function(resolve) {
+        var img = new Image();
         img.onload = function() {
             // 创建Canvas
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
             
             // 设置Canvas尺寸与原图相同
             canvas.width = img.width;
@@ -456,15 +456,15 @@ function compressImage(imageData, quality, format, index) {
             ctx.drawImage(img, 0, 0, img.width, img.height);
             
             // 确定输出格式
-            let outputFormat = format;
+            var outputFormat = format;
             if (format === 'same') {
                 outputFormat = imageData.file.type.split('/')[1];
             }
             
             // 转换为Blob
-            canvas.toBlob((blob) => {
-                let finalBlob = blob;
-                let finalSize = blob.size;
+            canvas.toBlob(function(blob) {
+                var finalBlob = blob;
+                var finalSize = blob.size;
                 
                 // 比较压缩前后大小，如果压缩后更大，则使用原文件
                 if (finalSize >= imageData.file.size) {
@@ -474,7 +474,7 @@ function compressImage(imageData, quality, format, index) {
                     outputFormat = imageData.file.type.split('/')[1];
                 }
                 
-                const compressedData = {
+                var compressedData = {
                     original: imageData,
                     compressed: {
                         blob: finalBlob,
@@ -486,7 +486,7 @@ function compressImage(imageData, quality, format, index) {
                     index: index
                 };
                 resolve(compressedData);
-           489: }, 'image/' + outputFormat, quality);
+            }, 'image/' + outputFormat, quality);
         };
         img.src = imageData.src;
     });
@@ -494,8 +494,8 @@ function compressImage(imageData, quality, format, index) {
 
 // 渲染压缩结果
 function renderCompressionResults(results) {
-    const resultContainer = document.getElementById('result-container');
-    const resultSection = document.getElementById('result-section');
+    var resultContainer = document.getElementById('result-container');
+    var resultSection = document.getElementById('result-section');
     
     // 存储压缩结果
     compressedResults = results;
@@ -565,7 +565,7 @@ function renderCompressionResults(results) {
 
 // 下载图片
 function downloadImage(button, url, filename) {
-    const a = document.createElement('a');
+    var a = document.createElement('a');
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
@@ -615,7 +615,7 @@ function downloadAllImages() {
     }
     
     // 检查是否有选中的图片，如果没有则默认下载全部
-    let imagesToDownload;
+    var imagesToDownload;
     if (selectedCompressedImages.length === 0) {
         // 默认下载全部
         imagesToDownload = [];
@@ -627,7 +627,7 @@ function downloadAllImages() {
         imagesToDownload = selectedCompressedImages.slice();
     }
     
-    const count = imagesToDownload.length;
+    var count = imagesToDownload.length;
     
     // 直接使用优化的逐个下载方式，确保移动端能一次性下载多张图片
     individualDownloadImages(imagesToDownload);
@@ -635,27 +635,27 @@ function downloadAllImages() {
 
 // 打包成zip文件下载
 function zipDownloadImages(imagesToDownload) {
-    const count = imagesToDownload.length;
+    var count = imagesToDownload.length;
    639: alert('正在打包 ' + count + ' 张图片，请稍候...');
     
     // 创建JSZip实例
-    const zip = new JSZip();
-    const imageFolder = zip.folder("compressed_images");
+    var zip = new JSZip();
+    var imageFolder = zip.folder("compressed_images");
     
     // 存储所有的Promise
-    const promises = [];
+    var promises = [];
     
-    imagesToDownload.forEach((index) => {
-        const result = compressedResults[index];
+    for (var i = 0; i < imagesToDownload.length; i++) { var index = imagesToDownload[i];
+        var result = compressedResults[index];
         if (result) {
-            const promise = new Promise((resolve) => {
+            var promise = new Promise(function(resolve) {
                 var compressedData = result.compressed;
                 var originalFile = result.original.file;
                 var originalName = originalFile.name;
                 var filename = originalName.split('.')[0] + '_compressed.' + compressedData.format;
                 
                 // 将Blob转换为ArrayBuffer，JSZip需要ArrayBuffer
-                const reader = new FileReader();
+                var reader = new FileReader();
                 reader.onload = function(e) {
                     // 将图片添加到zip文件夹
                     imageFolder.file(filename, e.target.result);
@@ -676,8 +676,8 @@ function zipDownloadImages(imagesToDownload) {
         })
         .then((zipBlob) => {
             // 创建下载链接
-            const a = document.createElement('a');
-            const blobUrl = URL.createObjectURL(zipBlob);
+            var a = document.createElement('a');
+            var blobUrl = URL.createObjectURL(zipBlob);
             a.href = blobUrl;
            682: a.download = 'compressed_images_' + new Date().getTime() + '.zip';
             document.body.appendChild(a);
@@ -708,10 +708,10 @@ function individualDownloadImages(imagesToDownload) {
         return;
     }
     
-    let downloadCount = 0;
+    var downloadCount = 0;
     
     // 预创建所有下载链接，提高下载效率
-    const downloadLinks = [];
+    var downloadLinks = [];
     
     // 优化1：提前创建所有下载链接
     for (var i = 0; i < imagesToDownload.length; i++) {
@@ -724,8 +724,8 @@ function individualDownloadImages(imagesToDownload) {
                 var originalName = originalFile.name;
                 var filename = originalName.split('.')[0] + '_compressed.' + compressedData.format;
                 
-                const a = document.createElement('a');
-                const blobUrl = URL.createObjectURL(compressedData.blob);
+                var a = document.createElement('a');
+                var blobUrl = URL.createObjectURL(compressedData.blob);
                 a.href = blobUrl;
                 a.download = filename;
                 a.style.display = 'none';
@@ -739,14 +739,14 @@ function individualDownloadImages(imagesToDownload) {
     });
     
     // 优化2：使用更短的延迟，提高下载速度
-    const DOWNLOAD_DELAY = 50; // 50ms延迟，比原来的100ms更快
+    var DOWNLOAD_DELAY = 50; // 50ms延迟，比原来的100ms更快
     
     // 创建下载函数
-    const downloadNext = (idx) => {
+    var downloadNext = function(idx) {
         if (idx >= downloadLinks.length) {
             // 所有图片下载完成后清理资源
             setTimeout(() => {
-                downloadLinks.forEach(link => {
+                for (var i = 0; i < downloadLinks.length; i++) { var link = downloadLinks[i];
                     URL.revokeObjectURL(link.blobUrl);
                 });
             }, DOWNLOAD_DELAY * 2);
@@ -755,10 +755,10 @@ function individualDownloadImages(imagesToDownload) {
             return;
         }
         
-        const linkData = downloadLinks[idx];
+        var linkData = downloadLinks[idx];
         if (linkData) {
             try {
-                const a = linkData.a;
+                var a = linkData.a;
                 document.body.appendChild(a);
                 
                 // 触发下载
