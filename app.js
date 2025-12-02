@@ -3,6 +3,8 @@
 // 全局变量
 let uploadedImages = []; // 存储已上传的图片
 let selectedImages = new Set(); // 存储选中的图片索引
+let compressedResults = []; // 存储压缩结果
+let selectedCompressedImages = new Set(); // 存储选中的压缩图片索引
 let compressBtn; // 压缩按钮全局变量
 
 // 页面加载完成后初始化
@@ -381,13 +383,18 @@ function renderCompressionResults(results) {
     const resultContainer = document.getElementById('result-container');
     const resultSection = document.getElementById('result-section');
     
+    // 存储压缩结果
+    compressedResults = results;
+    // 重置选中的压缩图片
+    selectedCompressedImages.clear();
+    
     // 清空结果容器
     resultContainer.innerHTML = '';
     
     // 渲染每个结果
-    results.forEach(result => {
+    results.forEach((result, index) => {
         const resultItem = document.createElement('div');
-        resultItem.className = 'border border-gray-200 rounded-lg p-4';
+        resultItem.className = 'border border-gray-200 rounded-lg p-4 mb-4';
         
         // 计算压缩率
         const originalSize = result.original.size;
@@ -395,6 +402,10 @@ function renderCompressionResults(results) {
         const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
         
         resultItem.innerHTML = `
+            <div class="flex items-start mb-3">
+                <input type="checkbox" class="compressed-image-checkbox" id="compressed-checkbox-${index}" onchange="toggleCompressedImageSelection(${index})">
+                <label for="compressed-checkbox-${index}" class="ml-2 text-sm text-gray-600">选择</label>
+            </div>
             <div class="flex flex-col md:flex-row gap-4">
                 <!-- 原图信息 -->
                 <div class="flex-1">
@@ -447,26 +458,71 @@ function downloadImage(button, url, filename) {
 }
 
 // 下载全部图片
+// 切换压缩图片选择状态
+function toggleCompressedImageSelection(index) {
+    if (selectedCompressedImages.has(index)) {
+        selectedCompressedImages.delete(index);
+    } else {
+        selectedCompressedImages.add(index);
+    }
+}
+
+// 选择所有压缩图片
+function selectAllCompressedImages() {
+    selectedCompressedImages.clear();
+    for (let i = 0; i < compressedResults.length; i++) {
+        selectedCompressedImages.add(i);
+        const checkbox = document.getElementById(`compressed-checkbox-${i}`);
+        if (checkbox) {
+            checkbox.checked = true;
+        }
+    }
+}
+
+// 取消选择所有压缩图片
+function deselectAllCompressedImages() {
+    selectedCompressedImages.clear();
+    for (let i = 0; i < compressedResults.length; i++) {
+        const checkbox = document.getElementById(`compressed-checkbox-${i}`);
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+    }
+}
+
 function downloadAllImages() {
-    // 检查是否有选中的图片
-    if (selectedImages.size === 0) {
-        alert('请先选择要下载的图片');
+    // 检查是否有压缩结果
+    if (compressedResults.length === 0) {
+        alert('请先压缩图片');
         return;
     }
     
-    // 遍历选中的图片索引
+    // 检查是否有选中的图片，如果没有则默认下载全部
+    let imagesToDownload;
+    if (selectedCompressedImages.size === 0) {
+        // 默认下载全部
+        imagesToDownload = Array.from({ length: compressedResults.length }, (_, i) => i);
+    } else {
+        // 下载选中的图片
+        imagesToDownload = Array.from(selectedCompressedImages);
+    }
+    
+    // 遍历要下载的图片索引
     let downloadCount = 0;
-    const selectedIndexes = Array.from(selectedImages);
     
     // 优化下载体验，添加延迟避免浏览器阻塞
-    selectedIndexes.forEach((index, idx) => {
+    imagesToDownload.forEach((index, idx) => {
         setTimeout(() => {
-            const imageData = uploadedImages[index];
-            if (imageData) {
+            const result = compressedResults[index];
+            if (result) {
+                const compressedData = result.compressed;
+                const originalName = result.original.name;
+                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+                
                 // 创建下载链接
                 const a = document.createElement('a');
-                a.href = imageData.src;
-                a.download = imageData.name;
+                a.href = URL.createObjectURL(compressedData.blob);
+                a.download = filename;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -474,7 +530,7 @@ function downloadAllImages() {
                 downloadCount++;
                 
                 // 最后一张图片下载完成后提示
-                if (downloadCount === selectedIndexes.length) {
+                if (downloadCount === imagesToDownload.length) {
                     alert(`已开始下载 ${downloadCount} 张图片`);
                 }
             }
