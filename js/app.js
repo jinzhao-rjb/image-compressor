@@ -104,7 +104,8 @@ function handleFileUpload(files) {
     totalSize = currentTotalSize;
     
     // 遍历有效文件
-    for (var i = 0; i < validFiles.length; i++) { var file = validFiles[i];
+    for (var i = 0; i < validFiles.length; i++) {
+        var file = validFiles[i];
         uploadedImages.push({
             file: file,
             name: file.name,
@@ -112,7 +113,7 @@ function handleFileUpload(files) {
             type: file.type,
             previewUrl: null
         });
-    });
+    }
     
     totalFiles = uploadedImages.length;
     
@@ -132,11 +133,9 @@ function handleFileUpload(files) {
 // 显示图片预览
 function displayPreview() {
     if (uploadedImages.length === 0) {
-        previewGrid.innerHTML = '
-            <div class="empty-preview">
-                <p>上传图片后将显示预览</p>
-            </div>
-        ';
+        previewGrid.innerHTML = '<div class="empty-preview">' +
+            '<p>上传图片后将显示预览</p>' +
+        '</div>';
         return;
     }
     
@@ -153,13 +152,11 @@ function displayPreview() {
         reader.onload = function(e) {
             var previewItem = document.createElement('div');
             previewItem.className = 'preview-item';
-            previewItem.innerHTML = '
-                <img src="${e.target.result}" alt="${image.name}" class="preview-image">
-                <div class="preview-info">
-                    <div>${image.name}</div>
-                    <div>${formatFileSize(image.size)}</div>
-                </div>
-            ';
+            previewItem.innerHTML = '<img src="' + e.target.result + '" alt="' + image.name + '" class="preview-image">' +
+                '<div class="preview-info">' +
+                    '<div>' + image.name + '</div>' +
+                    '<div>' + formatFileSize(image.size) + '</div>' +
+                '</div>';
             previewGrid.appendChild(previewItem);
         };
         
@@ -170,11 +167,9 @@ function displayPreview() {
     if (uploadedImages.length > CONFIG.previewLimit) {
         var moreDiv = document.createElement('div');
         moreDiv.className = 'preview-item';
-        moreDiv.innerHTML = '
-            <div style="padding: 20px; text-align: center;">
-                <p>... 还有 ${uploadedImages.length - CONFIG.previewLimit} 张图片</p>
-            </div>
-        ';
+        moreDiv.innerHTML = '<div style="padding: 20px; text-align: center;">' +
+            '<p>... 还有 ' + (uploadedImages.length - CONFIG.previewLimit) + ' 张图片</p>' +
+        '</div>';
         previewGrid.appendChild(moreDiv);
     }
     

@@ -208,7 +208,7 @@ function processFiles(files) {
                     var index = uploadedImages.length;
                     uploadedImages.push(imageData);
                     // 默认选择新上传的图片
-                    selectedImages.add(index);
+                    selectedImages.push(index);
                     renderImagePreview(imageData, index);
                     
                     // 更新月份筛选选项
@@ -478,7 +478,10 @@ function compressImage(imageData, quality, format, index) {
                 }
                 
                 var compressedData = {
-                    original: imageData,
+                    original: {
+                        ...imageData,
+                        size: imageData.file.size // 确保original对象有正确的size属性
+                    },
                     compressed: {
                         blob: finalBlob,
                         size: finalSize,
