@@ -514,7 +514,6 @@ function downloadAllImages() {
     }
     
     // 遍历要下载的图片索引
-    // 移动端优化：移除延迟，使用Promise链式调用确保下载在用户交互事件生命周期内完成
     let downloadCount = 0;
     
     // 创建下载函数
@@ -526,31 +525,61 @@ function downloadAllImages() {
         
         const index = imagesToDownload[idx];
         const result = compressedResults[index];
+        
         if (result) {
-            const compressedData = result.compressed;
-            const originalName = result.original.name;
-            const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
-            
-            // 创建下载链接
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(compressedData.blob);
-            a.download = filename;
-            document.body.appendChild(a);
-            
-            // 移动端优化：使用更可靠的点击触发方式
-            a.style.display = 'none';
-            a.click();
-            
-            // 移除元素
-            setTimeout(() => {
+            try {
+                const compressedData = result.compressed;
+                // 修复：确保正确访问原始文件名
+                const originalFile = result.original.file;
+                const originalName = originalFile.name;
+                const filename = `${originalName.split('.')[0]}_compressed.${compressedData.format}`;
+                
+                console.log(`准备下载第 ${idx + 1} 张图片:`, filename);
+                
+                // 创建下载链接
+                const a = document.createElement('a');
+                const blobUrl = URL.createObjectURL(compressedData.blob);
+                a.href = blobUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                
+                // 移动端优化：使用更可靠的点击触发方式
+                a.style.display = 'none';
+                
+                // 添加click事件监听，确保下载完成后清理资源
+                a.addEventListener('click', () => {
+                    // 延迟清理URL对象，确保下载完成
+                    setTimeout(() => {
+                        URL.revokeObjectURL(blobUrl);
+                    }, 100);
+                });
+                
+                // 触发下载
+                a.click();
+                
+                // 立即移除元素
                 document.body.removeChild(a);
+                
                 downloadCount++;
+                console.log(`已下载 ${downloadCount} 张图片`);
+                
+                // 继续下载下一张，使用setTimeout确保在浏览器事件循环中执行
+                setTimeout(() => {
+                    downloadNext(idx + 1);
+                }, 100); // 添加适当延迟，避免浏览器阻塞
+            } catch (error) {
+                console.error('下载图片失败:', error);
                 // 继续下载下一张
-                downloadNext(idx + 1);
-            }, 50); // 仅保留很小的延迟，确保元素被正确移除
+                setTimeout(() => {
+                    downloadNext(idx + 1);
+                }, 100);
+            }
         } else {
+            console.error('压缩结果不存在');
             // 继续下载下一张
-            downloadNext(idx + 1);
+            setTimeout(() => {
+                downloadNext(idx + 1);
+            }, 100);
         }
     };
     
