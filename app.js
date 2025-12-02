@@ -389,12 +389,13 @@ function renderAllPreviews() {
     var monthFilter = document.getElementById('month-filter');
     var selectedMonth = monthFilter ? monthFilter.value : 'all';
     
-    for (var index = 0; index < uploadedImages.length; index++) { var imageData = uploadedImages[index];
+    for (var index = 0; index < uploadedImages.length; index++) {
+        var imageData = uploadedImages[index];
         // 检查图片是否符合当前月份筛选条件
-       394: if (selectedMonth === 'all' || (imageData.year + '-' + imageData.month) === selectedMonth) {
+        if (selectedMonth === 'all' || (imageData.year + '-' + imageData.month) === selectedMonth) {
             renderImagePreview(imageData, index);
         }
-    });
+    }
 }
 
 // 压缩图片
@@ -517,44 +518,51 @@ function renderCompressionResults(results) {
         var compressedSize = result.compressed.size;
         var compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
         
-        resultItem.innerHTML = '
-            <div class="flex items-start mb-3">
-                <input type="checkbox" class="compressed-image-checkbox" id="compressed-checkbox-${index}" onchange="toggleCompressedImageSelection(${index})">
-                <label for="compressed-checkbox-${index}" class="ml-2 text-sm text-gray-600">选择</label>
-            </div>
-            <div class="flex flex-col md:flex-row gap-4">
-                <!-- 原图信息 -->
-                <div class="flex-1">
-                    <h4 class="font-medium mb-2">原图</h4>
-                    <img src="${result.original.src}" alt="原图" class="image-preview w-full rounded mb-2">
-                    <div class="text-sm text-gray-600">
-                        <div>文件名: ${result.original.name}</div>
-                        <div>尺寸: ${result.compressed.width} × ${result.compressed.height}</div>
-                        <div>大小: ${formatFileSize(originalSize)}</div>
-                    </div>
-                </div>
-                
-                <!-- 压缩后信息 -->
-                <div class="flex-1">
-                    <h4 class="font-medium mb-2">压缩后</h4>
-                    <img src="${URL.createObjectURL(result.compressed.blob)}" alt="压缩后" class="image-preview w-full rounded mb-2">
-                    <div class="text-sm text-gray-600">
-                        <div>格式: ${result.compressed.format.toUpperCase()}</div>
-                        <div>尺寸: ${result.compressed.width} × ${result.compressed.height}</div>
-                        <div>大小: ${formatFileSize(compressedSize)}</div>
-                        <div class="text-green-600">压缩率: ${compressionRatio}%</div>
-                    </div>
-                    <div class="mt-3">
-                        <button class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors" onclick="downloadImage(this, '${URL.createObjectURL(result.compressed.blob)}', '${result.original.name.split('.')[0]}_compressed.${result.compressed.format}')">
-                            下载
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
+        // 创建压缩图片的URL
+        var compressedUrl = URL.createObjectURL(result.compressed.blob);
         
+        // 生成文件名
+        var originalName = result.original.name;
+        var nameParts = originalName.split('.');
+        var baseName = nameParts[0];
+        for (var j = 1; j < nameParts.length - 1; j++) {
+            baseName += '.' + nameParts[j];
+        }
+        var compressedName = baseName + '_compressed.' + result.compressed.format;
+        
+        // 使用字符串拼接构建HTML
+        var html = '<div class="flex items-start mb-3">';
+        html += '<input type="checkbox" class="compressed-image-checkbox" id="compressed-checkbox-' + index + '" onchange="toggleCompressedImageSelection(' + index + ')">';
+        html += '<label for="compressed-checkbox-' + index + '" class="ml-2 text-sm text-gray-600">选择</label>';
+        html += '</div>';
+        html += '<div class="flex flex-col md:flex-row gap-4">';
+        html += '<div class="flex-1">';
+        html += '<h4 class="font-medium mb-2">原图</h4>';
+        html += '<img src="' + result.original.src + '" alt="原图" class="image-preview w-full rounded mb-2">';
+        html += '<div class="text-sm text-gray-600">';
+        html += '<div>文件名: ' + result.original.name + '</div>';
+        html += '<div>尺寸: ' + result.compressed.width + ' × ' + result.compressed.height + '</div>';
+        html += '<div>大小: ' + formatFileSize(originalSize) + '</div>';
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="flex-1">';
+        html += '<h4 class="font-medium mb-2">压缩后</h4>';
+        html += '<img src="' + compressedUrl + '" alt="压缩后" class="image-preview w-full rounded mb-2">';
+        html += '<div class="text-sm text-gray-600">';
+        html += '<div>格式: ' + result.compressed.format.toUpperCase() + '</div>';
+        html += '<div>尺寸: ' + result.compressed.width + ' × ' + result.compressed.height + '</div>';
+        html += '<div>大小: ' + formatFileSize(compressedSize) + '</div>';
+        html += '<div class="text-green-600">压缩率: ' + compressionRatio + '%</div>';
+        html += '</div>';
+        html += '<div class="mt-3">';
+        html += '<button class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors" onclick="downloadImage(this, \'' + compressedUrl + '\', \'' + compressedName + '\')">下载</button>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        resultItem.innerHTML = html;
         resultContainer.appendChild(resultItem);
-    });
+    }
     
     // 显示结果区域
     resultSection.classList.remove('hidden');
@@ -636,7 +644,7 @@ function downloadAllImages() {
 // 打包成zip文件下载
 function zipDownloadImages(imagesToDownload) {
     var count = imagesToDownload.length;
-   639: alert('正在打包 ' + count + ' 张图片，请稍候...');
+    alert('正在打包 ' + count + ' 张图片，请稍候...');
     
     // 创建JSZip实例
     var zip = new JSZip();
@@ -645,7 +653,8 @@ function zipDownloadImages(imagesToDownload) {
     // 存储所有的Promise
     var promises = [];
     
-    for (var i = 0; i < imagesToDownload.length; i++) { var index = imagesToDownload[i];
+    for (var i = 0; i < imagesToDownload.length; i++) {
+        var index = imagesToDownload[i];
         var result = compressedResults[index];
         if (result) {
             var promise = new Promise(function(resolve) {
@@ -666,7 +675,7 @@ function zipDownloadImages(imagesToDownload) {
             
             promises.push(promise);
         }
-    });
+    }
     
     // 等待所有图片处理完成
     Promise.all(promises)
@@ -679,7 +688,7 @@ function zipDownloadImages(imagesToDownload) {
             var a = document.createElement('a');
             var blobUrl = URL.createObjectURL(zipBlob);
             a.href = blobUrl;
-           682: a.download = 'compressed_images_' + new Date().getTime() + '.zip';
+            a.download = 'compressed_images_' + new Date().getTime() + '.zip';
             document.body.appendChild(a);
             
             // 触发下载
@@ -691,7 +700,7 @@ function zipDownloadImages(imagesToDownload) {
                 URL.revokeObjectURL(blobUrl);
             }, 100);
             
-           694: alert('已生成zip文件，开始下载 ' + count + ' 张图片');
+            alert('已生成zip文件，开始下载 ' + count + ' 张图片');
         })
         .catch((error) => {
             console.error('生成zip文件失败:', error);
@@ -704,7 +713,7 @@ function individualDownloadImages(imagesToDownload) {
     const count = imagesToDownload.length;
     
     // 移动端优化：简洁的确认提示
-   707: if (!confirm('即将下载 ' + count + ' 张图片，是否继续？')) {
+    if (!confirm('即将下载 ' + count + ' 张图片，是否继续？')) {
         return;
     }
     
@@ -736,7 +745,7 @@ function individualDownloadImages(imagesToDownload) {
                 console.error('创建下载链接失败:', error);
             }
         }
-    });
+    }
     
     // 优化2：使用更短的延迟，提高下载速度
     var DOWNLOAD_DELAY = 50; // 50ms延迟，比原来的100ms更快
@@ -746,12 +755,13 @@ function individualDownloadImages(imagesToDownload) {
         if (idx >= downloadLinks.length) {
             // 所有图片下载完成后清理资源
             setTimeout(() => {
-                for (var i = 0; i < downloadLinks.length; i++) { var link = downloadLinks[i];
+                for (var i = 0; i < downloadLinks.length; i++) {
+                    var link = downloadLinks[i];
                     URL.revokeObjectURL(link.blobUrl);
-                });
-            }, DOWNLOAD_DELAY * 2);
+                }
+            }, 100);
             
-           754: alert('已开始下载 ' + downloadCount + ' 张图片');
+            alert('已开始下载 ' + downloadLinks.length + ' 张图片');
             return;
         }
         
