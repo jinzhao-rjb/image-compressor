@@ -551,5 +551,10 @@ function init() {
     updateStats();
 }
 
+// 添加上传区域点击事件
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
+});
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
