@@ -567,10 +567,8 @@ function init() {
     updateStats();
 }
 
-// 添加上传区域点击事件
-uploadArea.addEventListener('click', () => {
-    fileInput.click();
-});
+// 移除多余的点击事件监听器，因为fileInput已经通过CSS覆盖整个uploadArea
+// 当用户点击uploadArea时，会直接触发fileInput的点击事件
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', init);
