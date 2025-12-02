@@ -53,6 +53,7 @@ main {
 }
 
 .upload-area {
+    position: relative;
     border: 2px dashed #667eea;
     border-radius: 15px;
     padding: 30px 20px;

@@ -506,11 +506,6 @@ function cleanupResources() {
 
 // 事件监听
 
-// 点击上传
-uploadArea.addEventListener('click', () => {
-    fileInput.click();
-});
-
 // 文件选择
 fileInput.addEventListener('change', (e) => {
     handleFileUpload(e.target.files);
